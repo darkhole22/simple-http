@@ -1,0 +1,15 @@
+{
+    "makefile.configurations": [
+        {
+            "name": "Debug",
+            "makeArgs": []
+        }
+    ],
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "${workspaceFolder}/bin/Debug-linux-x86_64/SimpleHTTPTest",
+            "binaryPath": "${workspaceFolder}/bin/Debug-linux-x86_64/SimpleHTTPTest/SimpleHTTPTest",
+            "binaryArgs": []
+        }
+    ]
+}
