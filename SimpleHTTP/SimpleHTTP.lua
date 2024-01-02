@@ -16,14 +16,22 @@ project "SimpleHTTP"
 
     includedirs
     {
-        "src",
-        "."
+        ".",
+        "src"
     }
 
     filter "system:windows"
         systemversion "latest"
         
-        includedirs {
+        files
+        {
+            "platform/windows/**.h",
+            "platform/windows/**.cpp"
+        }
+
+        includedirs
+        {
+            "platform/windows"
         }
         
         links
@@ -34,6 +42,17 @@ project "SimpleHTTP"
 
     filter "system:linux"
         systemversion "latest"
+
+        files
+        {
+            "platform/linux/**.h",
+            "platform/linux/**.cpp"
+        }
+
+        includedirs
+        {
+            "platform/linux"
+        }
         
         links {
         }
