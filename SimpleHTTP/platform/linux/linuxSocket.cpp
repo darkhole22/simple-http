@@ -4,6 +4,10 @@
 
 #include <format>
 #include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fstream>
 
 static inline int closeSocket(int fd) {
     return close(fd);
@@ -18,6 +22,82 @@ static inline ssize_t sendSocket(int sockfd, const void* buf, size_t len, int fl
 }
 
 namespace simpleHTTP {
+
+std::vector<Address> getLocalAddresses() {
+    std::vector<Address> result{};
+
+    ifaddrs* ifaddr, * ifa;
+
+    if (getifaddrs(&ifaddr) == -1) {
+        throw std::runtime_error("getifaddrs() failed.");
+    }
+
+    char host[NI_MAXHOST];
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) {
+            continue;
+        }
+
+        if (ifa->ifa_addr->sa_family != AF_INET && ifa->ifa_addr->sa_family != AF_INET6) {
+            continue;
+        }
+
+        socklen_t familyLen = (ifa->ifa_addr->sa_family == AF_INET) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+
+        int r = getnameinfo(ifa->ifa_addr, familyLen,
+            host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+
+        if (r != 0) {
+            if (r == EAI_AGAIN) {
+                // TODO: retry?
+            }
+
+            throw std::runtime_error(std::format("getnameinfo() failed: {}", gai_strerror(r)));
+        }
+
+        //std::cout << "Name: " << ifa->ifa_name << "\tIP: " << host << std::endl;
+        result.emplace_back(ifa->ifa_name, host, (ifa->ifa_addr->sa_family == AF_INET) ? AddressType::IPV4 : AddressType::IPV6);
+    }
+
+    freeifaddrs(ifaddr);
+
+    return result;
+}
+
+Address getDefaultAddress() {
+    char* p;
+    char* c;
+
+    std::ifstream f("/proc/net/route");
+
+    if (!f) {
+        throw std::runtime_error("Unable to find dafault address.");
+    }
+
+    std::string line;
+
+    while (std::getline(f, line)) {
+        p = strtok(line.data(), " \t");
+        c = strtok(NULL, " \t");
+
+        if (p != NULL && c != NULL) {
+            if (strcmp(c, "00000000") == 0) {
+                // printf("Default interface is : %s \n", p);
+                break;
+            }
+        }
+    }
+
+    auto addresses = getLocalAddresses();
+    for (auto& address : addresses) {
+        if (address.name == p) {
+            return address;
+        }
+    }
+
+    throw std::runtime_error("Unable to find dafault address.");
+}
 
 Ref<ServerSocketImpl> ServerSocket::make(u16 port) {
     return makeRef<LinuxServerSocket>(port);
@@ -42,11 +122,13 @@ u64 LinuxClientSocket::receive(void* buf, u64 size) {
         case ECONNREFUSED:
             err = "Remote host refused to connect";
             break;
+            // TODO Other Error code
         default:
+            err = "Unrecognized Error code";
             break;
         }
 
-        throw std::runtime_error(std::format("Error while receiving data ({})!", err));
+        throw std::runtime_error(std::format("Error while receiving data ({}, {})!", err, errno));
     }
 
     return result;

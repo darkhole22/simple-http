@@ -9,6 +9,13 @@ int main(int argc, char const* argv[]) {
     using namespace simpleHTTP;
 
     try {
+        auto addresses = getLocalAddresses();
+
+        for (auto& address : addresses) {
+            std::cout << "Name: " << address.name << "\tIP: " << address.value << "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") << std::endl;
+        }
+        std::cout << "Local Address: " << getDefaultAddress().value << std::endl;
+
         ServerSocket server(54001);
 
         ClientSocket client = server.accept();

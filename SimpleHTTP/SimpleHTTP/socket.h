@@ -1,7 +1,24 @@
 #pragma once
 #include <SimpleHTTP/types.h>
 
+#include <vector>
+
 namespace simpleHTTP {
+
+enum class AddressType
+{
+    IPV4, IPV6
+};
+
+struct Address
+{
+    std::string name;
+    std::string value;
+    AddressType type;
+};
+
+std::vector<Address> getLocalAddresses();
+Address getDefaultAddress();
 
 class ClientSocketImpl
 {
@@ -35,7 +52,7 @@ public:
     inline u64 receive(void* buf, u64 size) {
         return m_Implementation->receive(buf, size);
     }
-    
+
     inline u64 send(const void* buf, u64 size) {
         return m_Implementation->send(buf, size);
     }
