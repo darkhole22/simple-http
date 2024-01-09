@@ -171,6 +171,14 @@ LinuxServerSocket::LinuxServerSocket(u16 port)
     inet_pton(AF_INET, "0.0.0.0", &hint.sin_addr);
 
     if (bind(m_Socket, reinterpret_cast<sockaddr*>(&hint), sizeof(hint)) == -1) {
+
+        switch (errno) {
+        case EACCES:
+            throw std::runtime_error("Failed to bind socket for lack of privilages!");
+        case EADDRINUSE:
+            throw std::runtime_error("Failed to bind socket because the addres is already in use!");
+        }
+
         throw std::runtime_error("Failed to bind socket!");
     }
 
@@ -183,9 +191,10 @@ Ref<ClientSocketImpl> LinuxServerSocket::accept() {
     sockaddr_in client;
     socklen_t clientSize = sizeof(client);
 
+    // TODO: Use non blocking operation or see `select`
     i32 clientSocket = acceptSocket(m_Socket, reinterpret_cast<sockaddr*>(&client), &clientSize);
 
-    if (clientSize == -1) {
+    if (clientSocket == -1) {
         throw std::runtime_error("Failed to connect to client!");
     }
 

@@ -56,6 +56,10 @@ public:
     inline u64 send(const void* buf, u64 size) {
         return m_Implementation->send(buf, size);
     }
+
+    inline void close() {
+        m_Implementation->close();
+    }
 private:
     Ref<ClientSocketImpl> m_Implementation;
 };
@@ -71,6 +75,10 @@ public:
 
     inline u16 getPort() const {
         return m_Implementation->getPort();
+    }
+
+    inline void close() {
+        m_Implementation->close();
     }
 private:
     Ref<ServerSocketImpl> m_Implementation;

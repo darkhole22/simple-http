@@ -1,5 +1,6 @@
 #include <iostream>
-#include <SimpleHTTP/socket.h>
+#include <SimpleHTTP/http.h>
+#include <SimpleHTTP/executor/DefaultExecutor.h>
 
 #include <string>
 
@@ -12,27 +13,25 @@ int main(int argc, char const* argv[]) {
         auto addresses = getLocalAddresses();
 
         for (auto& address : addresses) {
-            std::cout << "Name: " << address.name << "\tIP: " << address.value << "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") << std::endl;
+            std::cout << "Name: " << address.name <<
+                "\tIP: " << address.value <<
+                "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") << std::endl;
         }
+
         std::cout << "Local Address: " << getDefaultAddress().value << std::endl;
 
-        ServerSocket server(54001);
+        HttpServerSettings s{};
+        HttpServer server{ s };
 
-        ClientSocket client = server.accept();
+        DefaultExecutor executor{};
 
-        char buf[BUFFER_SIZE];
-        while (true) {
-            i64 bytesReceived = client.receive(buf, BUFFER_SIZE);
+        std::jthread closingThread([&executor, &server](std::stop_token st) {
+            std::cin.get();
+            executor.stop();
+            server.stop();
+        });
 
-            if (bytesReceived == 0) {
-                std::cout << "Client disconnected" << std::endl;
-                break;
-            }
-
-            std::cout << "Received: " << std::string(buf, 0, bytesReceived) << std::endl;
-
-            client.send(buf, bytesReceived);
-        }
+        executor.run(server);
     }
     catch (std::exception& ex) {
         std::cerr << ex.what() << std::endl;
