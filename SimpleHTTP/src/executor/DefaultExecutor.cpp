@@ -26,6 +26,7 @@ void DefaultExecutor::run(HttpServer& server) {
             connection = server.accept();
         }
         catch (const std::exception& e) {
+            m_StagedConnectionCV.notify_all();
             break;
         }
 
@@ -74,8 +75,12 @@ void DefaultExecutor::processConnectionsImpl() {
     {
         std::unique_lock lk(m_StagedConnectionMutex);
         m_StagedConnectionCV.wait(lk, [this] {
-            return m_StagedConnection.has_value();
+            return m_StagedConnection.has_value() || m_StopSource.stop_requested();
         });
+
+        if (m_StopSource.stop_requested()) {
+            return;
+        }
 
         m_StagedConnection.swap(connection);
     }

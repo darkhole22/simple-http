@@ -8,13 +8,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
+#include <poll.h>
 
 static inline int closeSocket(int fd) {
     return close(fd);
 }
 
 static inline int acceptSocket(int sockfd, struct sockaddr* addr, socklen_t* addrlen) {
-    return accept(sockfd, addr, addrlen);
+    pollfd fd{};
+    fd.fd = sockfd;
+    fd.events = POLLIN | POLLPRI;
+
+    do {
+        poll(&fd, 1, 1000);
+    } while (fd.revents == 0);
+
+    return accept4(sockfd, addr, addrlen, SOCK_CLOEXEC);
 }
 
 static inline ssize_t sendSocket(int sockfd, const void* buf, size_t len, int flags) {
