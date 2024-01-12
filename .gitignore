@@ -2,3 +2,7 @@ Makefile
 
 /bin/
 /bin-int/
+
+*.sln
+*.vcxproj
+*.vcxproj.filters
