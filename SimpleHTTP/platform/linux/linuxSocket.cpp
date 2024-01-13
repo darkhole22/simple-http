@@ -105,7 +105,7 @@ Address getDefaultAddress() {
         }
     }
 
-    throw std::runtime_error("Unable to find dafault address.");
+    throw std::runtime_error("Unable to find default address.");
 }
 
 Ref<ServerSocketImpl> ServerSocket::make(u16 port) {

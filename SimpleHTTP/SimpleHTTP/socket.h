@@ -1,6 +1,7 @@
 #pragma once
 #include <SimpleHTTP/types.h>
 
+#include <string>
 #include <vector>
 
 namespace simpleHTTP {

@@ -1,6 +1,7 @@
 #include <SimpleHTTP/executor/DefaultExecutor.h>
 
 #include <algorithm>
+#include <iterator>
 
 namespace simpleHTTP {
 
@@ -25,7 +26,7 @@ void DefaultExecutor::run(HttpServer& server) {
         try {
             connection = server.accept();
         }
-        catch (const std::exception& e) {
+        catch (const std::exception&) {
             m_StagedConnectionCV.notify_all();
             break;
         }

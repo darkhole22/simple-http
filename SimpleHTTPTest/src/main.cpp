@@ -14,8 +14,8 @@ int main(int argc, char const* argv[]) {
 
         for (auto& address : addresses) {
             std::cout << "Name: " << address.name <<
-                "\tIP: " << address.value <<
-                "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") << std::endl;
+                "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") <<
+                "\tIP: " << address.value << std::endl;
         }
 
         std::cout << "Local Address: " << getDefaultAddress().value << std::endl;
@@ -32,8 +32,7 @@ int main(int argc, char const* argv[]) {
         });
 
         executor.run(server);
-    }
-    catch (std::exception& ex) {
+    } catch (std::exception& ex) {
         std::cerr << ex.what() << std::endl;
     }
     return 0;
