@@ -16,6 +16,11 @@ class DefaultExecutor
 public:
     DefaultExecutor();
 
+    template<typename Func>
+    void setProcessRequest(Func&& func) {
+        m_ProcessRequest = func;
+    }
+
     /// @brief 
     /// @note This function has effect only when called the first time.
     /// @param server 
@@ -36,6 +41,8 @@ private:
     std::optional<HttpServerConnection> m_StagedConnection;
     std::mutex m_StagedConnectionMutex;
     std::condition_variable m_StagedConnectionCV;
+
+    std::function<bool(const HttpRequest&, HttpResponse&)> m_ProcessRequest;
 
     void setup();
 

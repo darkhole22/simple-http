@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <iostream>
 
 namespace simpleHTTP {
 
@@ -25,8 +26,7 @@ void DefaultExecutor::run(HttpServer& server) {
 
         try {
             connection = server.accept();
-        }
-        catch (const std::exception&) {
+        } catch (const std::exception&) {
             m_StagedConnectionCV.notify_all();
             break;
         }
@@ -44,7 +44,7 @@ void DefaultExecutor::run(HttpServer& server) {
         }
         m_StagedConnectionCV.notify_one();
     }
-    
+
     stop();
 }
 
@@ -58,8 +58,8 @@ void DefaultExecutor::setup() {
     if (m_Threads.size() < static_cast<std::size_t>(m_MinThread)) {
         m_Threads.reserve(m_MinThread);
         std::generate_n(std::back_inserter(m_Threads),
-            static_cast<std::size_t>(m_MinThread) - m_Threads.size(),
-            [this] {
+                        static_cast<std::size_t>(m_MinThread) - m_Threads.size(),
+                        [this] {
             return std::jthread(processConnections, m_StopSource.get_token(), this);
         });
     }
@@ -87,7 +87,36 @@ void DefaultExecutor::processConnectionsImpl() {
     }
     m_StagedConnectionCV.notify_all();
 
-    // TODO: Implement handling logic.
+    bool keepAlive = false;
+    do {
+        try {
+            HttpRequest request = connection->getNextRequest();
+            HttpResponse response = connection->makeResponse();
+
+            if (m_ProcessRequest) {
+                try {
+                    if (m_ProcessRequest(request, response)) {
+                        // Success
+                        continue;
+                    }
+                } catch (...) {}
+                // TODO: Implement handling logic.
+                // Failure
+            }
+            else {
+                // Not Implemented
+            }
+        } catch (const std::exception& ex) {
+            // TODO: Proper Logging
+            std::cout << ex.what() << std::endl;
+            keepAlive = false;
+        } catch (...) {
+            // TODO: Proper Logging
+            std::cout << "Unrecognized Exception" << std::endl;
+            keepAlive = false;
+        }
+    } while (keepAlive);
+
     connection->close();
 }
 

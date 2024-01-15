@@ -4,10 +4,14 @@
 
 #include <string>
 
+using namespace simpleHTTP;
 constexpr unsigned long long BUFFER_SIZE = 1000ULL;
 
+static bool processRequest(const HttpRequest& request, HttpResponse& response) {
+    return false;
+}
+
 int main(int argc, char const* argv[]) {
-    using namespace simpleHTTP;
 
     try {
         auto addresses = getLocalAddresses();
@@ -30,6 +34,8 @@ int main(int argc, char const* argv[]) {
             executor.stop();
             server.stop();
         });
+
+        executor.setProcessRequest(processRequest);
 
         executor.run(server);
     } catch (std::exception& ex) {

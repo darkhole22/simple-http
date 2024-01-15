@@ -8,6 +8,14 @@ HttpServerConnection::HttpServerConnection(ClientSocket&& socket)
 
 HttpServerConnection::~HttpServerConnection() {}
 
+HttpRequest HttpServerConnection::getNextRequest() {
+    return HttpRequest(&m_Socket);
+}
+
+HttpResponse HttpServerConnection::makeResponse() {
+    return HttpResponse(&m_Socket);
+}
+
 void HttpServerConnection::close() {
     m_Socket.close();
 }
@@ -26,6 +34,22 @@ void HttpServer::stop() {
 HttpServer::~HttpServer() {
 
 }
+
+HttpRequest::HttpRequest(ClientSocket* socket)
+    : m_Socket(socket) {
+}
+
+HttpVersion HttpRequest::getVersion() const {
+    return m_Version;
+}
+
+HttpRequest::~HttpRequest() {}
+
+HttpResponse::HttpResponse(ClientSocket* socket)
+    : m_Socket(socket) {
+}
+
+HttpResponse::~HttpResponse() {}
 
 } // namespace simpleHTTP
 
