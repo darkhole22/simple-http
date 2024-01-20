@@ -21,12 +21,12 @@ public:
     using StateFunction = TEnum(*)(TData*, TChar);
 
     template<std::ranges::input_range TRange>
-    void parse(TData* data, TRange&& s, TEnum start) {
+    bool parse(TData* data, TRange&& s, TEnum start) const {
         auto first = std::ranges::begin(s);
         auto last = std::ranges::end(s);
 
         for (; first != last; ++first) {
-            if (start >= TEnum::LAST)
+            if (start >= TEnum::LAST || static_cast<u64>(start) < 0)
                 break;
 
             auto& f = m_States[static_cast<u64>(start)];
@@ -35,9 +35,11 @@ public:
 
             start = f(data, *first);
         }
+
+        return first == last;
     }
 
-    StateFunction m_States[static_cast<u64>(TEnum::LAST)] = { nullptr };
+    const StateFunction m_States[static_cast<u64>(TEnum::LAST)] = { nullptr };
 };
 
 }

@@ -11,8 +11,9 @@ class URI
 {
 public:
     URI();
-    ~URI();
+    URI(std::string_view uri);
 
+    ~URI();
 private:
     bool m_IsAbsoluteURI = false;
     std::vector<std::string> m_Segments;
