@@ -93,19 +93,32 @@ void DefaultExecutor::processConnectionsImpl() {
             HttpRequest request = connection->getNextRequest();
             HttpResponse response = connection->makeResponse();
 
+            response.setVersion(request.getVersion());
+
             if (m_ProcessRequest) {
                 try {
                     if (m_ProcessRequest(request, response)) {
                         // Success
+
+                        if (!response.wasSent()) {
+                            response.send();
+                        }
                         continue;
                     }
                 } catch (...) {}
-                // TODO: Implement handling logic.
+
                 // Failure
+                response.setStatusCode(StatusCode::INTERNAL_SERVER_ERROR);
+                response.clearHeaderFields();
+                response.generateDefaultReasonPhrase();
+                keepAlive = false;
             }
             else {
-                // Not Implemented
+                response.setStatusCode(StatusCode::INTERNAL_SERVER_ERROR);
+                keepAlive = false;
             }
+
+            response.send();
         } catch (const std::exception& ex) {
             // TODO: Proper Logging
             std::cout << ex.what() << std::endl;

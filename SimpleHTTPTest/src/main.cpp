@@ -7,8 +7,54 @@
 using namespace simpleHTTP;
 constexpr unsigned long long BUFFER_SIZE = 1000ULL;
 
+static const std::string indexHTML =
+"<!DOCTYPE html>"
+"<html lang=\'en\'>"
+"<head>"
+"<meta charset=\'utf-8\'>"
+"<title>Page Title</title>"
+"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"
+"</head>"
+"<body>"
+"</body>"
+"</html>";
+
 static bool processRequest(const HttpRequest& request, HttpResponse& response) {
-    return false;
+    response.setVersion(HttpVersion::V1_0);
+
+    HttpMethod method = request.getMethod();
+    const URI& uri = request.getURI();
+
+    std::cout << std::format("Http Request: {} {} {}", request.getVersion(), method, uri) << std::endl;
+
+    // for (auto& fieldLine : request.getAllHeaderFields()) {
+    //     std::cout << std::format("\t{}: {}", fieldLine.first, fieldLine.second) << std::endl;
+    // }
+
+    response.addHeaderField("Allow", "GET, HEAD");
+
+    if (method != HttpMethod::GET && method != HttpMethod::HEAD) {
+        response.setStatusCode(StatusCode::NOT_IMPLEMENTED);
+        return true;
+    }
+
+    if (uri.toString() == "/") {
+        response.setStatusCode(StatusCode::OK);
+
+        response.addHeaderField("Content-Length", std::format("{}", indexHTML.size()));
+        response.addHeaderField("Content-Type", "text/html; charset=utf-8");
+        response.addHeaderField("Cache-Control", "no-cache");
+        response.addHeaderField("X-Content-Type-Options", "nosniff");
+
+        response.send([](ClientSocket* socket) {
+            socket->send(indexHTML.data(), indexHTML.size());
+        });
+        return true;
+    }
+
+    response.setStatusCode(StatusCode::NOT_FOUND);
+
+    return true;
 }
 
 int main(int argc, char const* argv[]) {
@@ -22,10 +68,10 @@ int main(int argc, char const* argv[]) {
                 "\tIP: " << address.value << std::endl;
         }
 
-        std::cout << "Local Address: " << getDefaultAddress().value << std::endl;
-
         HttpServerSettings s{};
         HttpServer server{ s };
+
+        std::cout << "\nLocal Address: http://" << getDefaultAddress().value << ":" << server.getPort() << std::endl;
 
         DefaultExecutor executor{};
 

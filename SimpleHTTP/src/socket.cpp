@@ -6,7 +6,9 @@ namespace simpleHTTP {
 
 simpleHTTP::ClientSocket::ClientSocket(Ref<ClientSocketImpl>&& impl)
     : m_Implementation(impl) {
-    m_Buffer.reserve(SOCKET_BUFFER_SIZE);
+    m_Cache.resize(SOCKET_BUFFER_SIZE);
+    m_CacheBegin = m_Cache.begin();
+    m_CacheEnd = m_Cache.begin();
 }
 
 u64 ClientSocket::receiveUntil(void* _buf, u64 size, const void* _delimiter, u64 delimiterSize) {
@@ -18,24 +20,24 @@ u64 ClientSocket::receiveUntil(void* _buf, u64 size, const void* _delimiter, u64
     u64 outLen = 0;
 
     while (!match && outLen < size) {
-        if (m_Buffer.size() <= 0) {
-            m_Buffer.resize(SOCKET_BUFFER_SIZE);
-            u64 byteRead = receive(m_Buffer.data(), SOCKET_BUFFER_SIZE);
-            m_Buffer.resize(byteRead);
+        u64 cacheSize = std::distance(m_CacheBegin, m_CacheEnd);
+        if (cacheSize <= 0) {
+            u64 byteRead = receive(m_Cache.data(), SOCKET_BUFFER_SIZE);
+            m_CacheBegin = m_Cache.begin();
+            m_CacheEnd = m_CacheBegin + byteRead;
         }
 
-        auto find = std::search(m_Buffer.begin(), m_Buffer.end(), delimiter, delimiter + delimiterSize);
+        auto find = std::search(m_CacheBegin, m_CacheEnd, delimiter, delimiter + delimiterSize);
 
-        u64 toCopy = std::distance(m_Buffer.begin(), find);
+        u64 toCopy = std::distance(m_CacheBegin, find);
         toCopy = std::min(toCopy, size - outLen);
 
-        bufIt = std::copy(m_Buffer.begin(), m_Buffer.begin() + toCopy, bufIt);
+        bufIt = std::copy(m_CacheBegin, m_CacheBegin + toCopy, bufIt);
         outLen += toCopy;
 
-        match = find != m_Buffer.end();
+        match = find != m_CacheEnd;
 
-        auto newEnd = std::shift_left(m_Buffer.begin(), m_Buffer.end(), toCopy + delimiterSize);
-        m_Buffer.resize(std::distance(m_Buffer.begin(), newEnd));
+        m_CacheBegin += toCopy + delimiterSize;
     }
 
     return outLen;

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string_view>
 #include <string>
+#include <format>
 
 namespace simpleHTTP {
 
@@ -26,6 +27,8 @@ public:
     std::string& getQuery();
     const std::string& getQuery() const;
 
+    std::string toString() const;
+
     URI& operator=(const URI& other) = default;
     URI& operator=(URI&& other) = default;
 
@@ -38,3 +41,13 @@ private:
 };
 
 }
+
+template <>
+struct std::formatter<simpleHTTP::URI> : std::formatter<std::string>
+{
+    auto format(const simpleHTTP::URI& uri, format_context& ctx) const {
+        return formatter<string>::format(uri.toString(), ctx);
+    }
+
+    formatter() = default;
+};

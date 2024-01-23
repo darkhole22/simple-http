@@ -5,6 +5,7 @@
 #include <ranges>
 #include <cctype>
 #include <algorithm>
+#include <format>
 
 namespace simpleHTTP {
 
@@ -22,6 +23,8 @@ static constexpr bool ignoreCaseEquals(std::string_view lhs, std::string_view rh
 static constexpr bool useCaseEquals(std::string_view lhs, std::string_view rhs) {
     return lhs == rhs;
 }
+
+static constexpr const auto toLowerView = std::views::transform([](i8 c) -> i8 { return std::tolower(c); });
 
 static constexpr HttpMethod FromString(std::string_view str) {
     if (ignoreCaseEquals(str, "GET")) {
@@ -79,6 +82,10 @@ HttpServerConnection HttpServer::accept() {
     return { std::move(m_Socket.accept()) };
 }
 
+u16 HttpServer::getPort() const {
+    return m_Socket.getPort();
+}
+
 void HttpServer::stop() {
     m_Socket.close();
 }
@@ -113,17 +120,59 @@ HttpRequest::HttpRequest(ClientSocket* socket)
         if (colon == end)
             continue;
 
-        std::string_view fieldName(buffer.begin(), colon);
+        auto fieldName = std::string_view(buffer.begin(), colon) | toLowerView;
 
         auto beginField = std::find_if_not(colon + 1, end, [](i8 c) { return c == ' '; });
-        std::string_view fieldValue(beginField, end);
 
-        m_HeaderFields.emplace(std::make_pair(fieldName, fieldValue));
+        m_HeaderFields.emplace(std::piecewise_construct,
+                               std::make_tuple(fieldName.begin(), fieldName.end()),
+                               std::make_tuple(beginField, end));
     } while (headerFieldLen > 0);
+}
+
+std::string HttpRequest::getFieldNameIgnoreCase(std::string_view name) const {
+    auto fieldName = name | toLowerView;
+    return std::string(fieldName.begin(), fieldName.end());
 }
 
 HttpVersion HttpRequest::getVersion() const {
     return m_Version;
+}
+
+HttpMethod HttpRequest::getMethod() const {
+    return m_Method;
+}
+
+const URI& HttpRequest::getURI() const {
+    return m_Uri;
+}
+
+void HttpRequest::setHeaderField(std::string_view _name, std::string_view value) {
+    auto fieldName = _name | toLowerView;
+    std::string name(fieldName.begin(), fieldName.end());
+
+    auto it = m_HeaderFields.find(name);
+
+    if (it == m_HeaderFields.end()) {
+        m_HeaderFields.emplace(std::piecewise_construct,
+                               std::make_tuple(fieldName.begin(), fieldName.end()),
+                               std::make_tuple(value));
+        return;
+    }
+
+    it->second = value;
+    // TODO remove duplicates?
+}
+
+const HttpRequest::HeaderFieldsMap& HttpRequest::getAllHeaderFields() const {
+    return m_HeaderFields;
+}
+
+void HttpRequest::addHeaderField(std::string_view name, std::string_view value) {
+    auto fieldName = name | toLowerView;
+    m_HeaderFields.emplace(std::piecewise_construct,
+                           std::make_tuple(fieldName.begin(), fieldName.end()),
+                           std::make_tuple(value));
 }
 
 HttpRequest::~HttpRequest() {}
@@ -132,6 +181,108 @@ HttpResponse::HttpResponse(ClientSocket* socket)
     : m_Socket(socket) {}
 
 HttpResponse::~HttpResponse() {}
+
+void HttpResponse::setVersion(HttpVersion version) {
+    m_Version = version;
+}
+
+void HttpResponse::setStatusCode(StatusCode code) {
+    setStatusCode(static_cast<u16>(code));
+}
+
+void HttpResponse::setStatusCode(u16 code) {
+    if (code > 999)
+        return;
+
+    m_StatusCode = code;
+}
+
+void HttpResponse::setReasonPhrase(std::string_view reason) {
+    m_UseDefaultReasonPhrase = false;
+    m_ReasonPhrase = reason;
+}
+
+void HttpResponse::setUseDefaultReasonPhrase(bool v) {
+    m_UseDefaultReasonPhrase = v;
+}
+
+void HttpResponse::addHeaderField(std::string_view name, std::string_view value) {
+    m_HeaderFields.emplace_back(name, value);
+}
+
+void HttpResponse::clearHeaderFields() {
+    m_HeaderFields.clear();
+}
+
+bool HttpResponse::wasSent() const {
+    return m_WasSent;
+}
+
+void HttpResponse::send() {
+    send(nullptr);
+}
+
+void HttpResponse::send(std::function<void(ClientSocket*)> body) {
+    if (m_WasSent)
+        return;
+
+    m_WasSent = true;
+
+    if (m_UseDefaultReasonPhrase) {
+        generateDefaultReasonPhrase();
+    }
+
+    auto statusLine = std::format("{} {} {}\r\n", m_Version, m_StatusCode, m_ReasonPhrase);
+
+    m_Socket->send(statusLine.data(), statusLine.size());
+    for (auto& headerField : m_HeaderFields) {
+        auto field = std::format("{}: {}\r\n", headerField.first, headerField.second);
+        m_Socket->send(field.data(), field.size());
+    }
+    m_Socket->send("\r\n", 2);
+
+    if (body) {
+        body(m_Socket);
+    }
+}
+
+void HttpResponse::generateDefaultReasonPhrase() {
+    m_UseDefaultReasonPhrase = true;
+    switch (m_StatusCode) {
+    case 200: m_ReasonPhrase = "OK";
+        break;
+    case 201: m_ReasonPhrase = "Created";
+        break;
+    case 202: m_ReasonPhrase = "Accepted";
+        break;
+    case 204: m_ReasonPhrase = "No Content";
+        break;
+    case 301: m_ReasonPhrase = "Moved Permanently";
+        break;
+    case 302: m_ReasonPhrase = "Moved Temporarily";
+        break;
+    case 304: m_ReasonPhrase = "Not Modified";
+        break;
+    case 400: m_ReasonPhrase = "Bad Request";
+        break;
+    case 401: m_ReasonPhrase = "Unauthorized";
+        break;
+    case 403: m_ReasonPhrase = "Forbidden";
+        break;
+    case 404: m_ReasonPhrase = "Not Found";
+        break;
+    case 500: m_ReasonPhrase = "Internal Server Error";
+        break;
+    case 501: m_ReasonPhrase = "Not Implemented";
+        break;
+    case 502: m_ReasonPhrase = "Bad Gateway";
+        break;
+    case 503: m_ReasonPhrase = "Service Unavailable";
+        break;
+    default:
+    break;
+    }
+}
 
 } // namespace simpleHTTP
 

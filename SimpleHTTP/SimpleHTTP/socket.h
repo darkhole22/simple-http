@@ -67,7 +67,9 @@ public:
     }
 private:
     Ref<ClientSocketImpl> m_Implementation;
-    std::vector<u8> m_Buffer;
+    std::vector<u8> m_Cache;
+    std::vector<u8>::iterator m_CacheBegin;
+    std::vector<u8>::iterator m_CacheEnd;
 };
 
 class ServerSocket

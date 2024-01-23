@@ -288,6 +288,21 @@ const std::string& URI::getQuery() const {
     return m_Query;
 }
 
+std::string URI::toString() const {
+    std::string result;
+
+    for (auto& segment : m_Segments) {
+        result.append("/");
+        result.append(segment);
+    }
+
+    if (result.size() == 0) {
+        result.append("/");
+    }
+
+    return result;
+}
+
 URI::~URI() {}
 
 }
