@@ -44,7 +44,7 @@ private:
     HttpVersion m_Version = HttpVersion::UNKNOWN;
     HttpMethod m_Method = HttpMethod::UNKNOWN;
     URI m_Uri;
-    std::unordered_map<std::string, std::string> m_HeaderFields;
+    std::unordered_multimap<std::string, std::string> m_HeaderFields;
 
     HttpRequest(ClientSocket* socket);
 };

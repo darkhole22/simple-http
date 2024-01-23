@@ -6,6 +6,8 @@
 
 namespace simpleHTTP {
 
+constexpr u64 SOCKET_BUFFER_SIZE = 0x1000;
+
 enum class AddressType
 {
     IPV4, IPV6
@@ -58,11 +60,14 @@ public:
         return m_Implementation->send(buf, size);
     }
 
+    u64 receiveUntil(void* buf, u64 size, const void* delimiter, u64 delimiterSize);
+
     inline void close() {
         m_Implementation->close();
     }
 private:
     Ref<ClientSocketImpl> m_Implementation;
+    std::vector<u8> m_Buffer;
 };
 
 class ServerSocket

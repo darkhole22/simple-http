@@ -12,6 +12,22 @@ class URI
 public:
     URI();
     URI(std::string_view uri);
+    URI(const URI& other) = default;
+    URI(URI&& other) = default;
+
+    inline bool isAbsolute() const { return m_IsAbsoluteURI; }
+
+    std::vector<std::string>& getSegments();
+    const std::vector<std::string>& getSegments() const;
+
+    std::vector<std::string>& getParameters();
+    const std::vector<std::string>& getParameters() const;
+
+    std::string& getQuery();
+    const std::string& getQuery() const;
+
+    URI& operator=(const URI& other) = default;
+    URI& operator=(URI&& other) = default;
 
     ~URI();
 private:

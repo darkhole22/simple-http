@@ -264,6 +264,30 @@ URI::URI(std::string_view uri) {
     }
 }
 
+std::vector<std::string>& URI::getSegments() {
+    return m_Segments;
+}
+
+const std::vector<std::string>& URI::getSegments() const {
+    return m_Segments;
+}
+
+std::vector<std::string>& URI::getParameters() {
+    return m_Parameters;
+}
+
+const std::vector<std::string>& URI::getParameters() const {
+    return m_Parameters;
+}
+
+std::string& URI::getQuery() {
+    return m_Query;
+}
+
+const std::string& URI::getQuery() const {
+    return m_Query;
+}
+
 URI::~URI() {}
 
 }
