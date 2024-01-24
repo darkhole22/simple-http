@@ -16,6 +16,7 @@ class DefaultExecutor
 public:
     DefaultExecutor();
 
+    // TODO: This should be passed to the run function
     template<typename Func>
     void setProcessRequest(Func&& func) {
         m_ProcessRequest = func;

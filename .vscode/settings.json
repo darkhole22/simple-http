@@ -64,6 +64,7 @@
         "variant": "cpp",
         "format": "cpp",
         "xutility": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "stop_token": "cpp"
     }
 }
