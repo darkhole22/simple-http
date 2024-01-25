@@ -9,3 +9,4 @@ Makefile
 *.vcxproj.user
 
 /.vs/
+/.vscode/
