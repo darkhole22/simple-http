@@ -35,7 +35,8 @@ int main(int argc, char const* argv[]) {
             server.stop();
         });
 
-        DefaultRequestHandler requestHandler{};
+        DefaultRequestHandlerSettings defaultRequestHandlerSettings{};
+        DefaultRequestHandler requestHandler(defaultRequestHandlerSettings);
 
         executor.setProcessRequest([&requestHandler](const HttpRequest& request, HttpResponse& response) {
             return requestHandler.processRequest(request, response);

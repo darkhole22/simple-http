@@ -187,11 +187,11 @@ void HttpResponse::setVersion(HttpVersion version) {
 }
 
 void HttpResponse::setStatusCode(StatusCode code) {
-    setStatusCode(static_cast<u16>(code));
+    setStatusCode(static_cast<StatusCodeType>(code));
 }
 
-void HttpResponse::setStatusCode(u16 code) {
-    if (code > 999)
+void HttpResponse::setStatusCode(StatusCodeType code) {
+    if (code < 100 || code > 999)
         return;
 
     m_StatusCode = code;
@@ -282,6 +282,13 @@ void HttpResponse::generateDefaultReasonPhrase() {
     default:
     break;
     }
+}
+
+bool isMajorHttpVersionGrater(HttpVersion _v1, HttpVersion _v2) {
+    u32 v1 = static_cast<u32>(_v1);
+    u32 v2 = static_cast<u32>(_v2);
+
+    return (v1 / 1000) > (v2 / 1000);
 }
 
 } // namespace simpleHTTP

@@ -4,6 +4,26 @@
 
 namespace simpleHTTP {
 
+RequestProcessor::RequestProcessor(InitializerList processors)
+    : m_ProcessFunctions(processors.begin(), processors.end()) {}
+
+Resource RequestProcessor::operator()(const HttpRequest& request) const {
+    HttpMethod method = request.getMethod();
+
+    auto it = m_ProcessFunctions.find(method);
+
+    if (it != m_ProcessFunctions.end()) {
+        return it->second(request);
+    }
+
+    return Resource{};
+}
+
+void DefaultRequestHandlerSettings::registerRequestProcessor(std::string_view uri,
+                                                             RequestProcessor::InitializerList processors) {
+    m_RequestProcessors.emplace(uri, processors);
+}
+
 static const std::string indexHTML =
 "<!DOCTYPE html>"
 "<html lang=\'en\'>"
@@ -16,19 +36,33 @@ static const std::string indexHTML =
 "</body>"
 "</html>";
 
-DefaultRequestHandler::DefaultRequestHandler() {}
+DefaultRequestHandler::DefaultRequestHandler(const DefaultRequestHandlerSettings& settings)
+    : m_HttpVersion(settings.httpVersion), m_RequestProcessors(settings.m_RequestProcessors) {}
 
-bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpResponse& response) {
-    response.setVersion(HttpVersion::V1_0);
+bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpResponse& response) const {
+    if (m_RequestFilter && !m_RequestFilter(request)) {
+        return false;
+    }
+
+    response.setVersion(m_HttpVersion);
+
+    if (isMajorHttpVersionGrater(request.getVersion(), m_HttpVersion)) {
+        response.setStatusCode(StatusCode::HTTP_VERSION_NOT_SUPPORTED);
+        return true;
+    }
 
     HttpMethod method = request.getMethod();
     const URI& uri = request.getURI();
 
-    std::cout << std::format("Http Request: {} {} {}", request.getVersion(), method, uri) << std::endl;
+    if (m_RequestProcessors.size() == 0) {
+        return false;
+    }
 
-    // for (auto& fieldLine : request.getAllHeaderFields()) {
-    //     std::cout << std::format("\t{}: {}", fieldLine.first, fieldLine.second) << std::endl;
-    // }
+    // Find best fit
+    // If no fit retur falses
+
+    auto resource = m_RequestProcessors.begin()->second(request);
+    response.setStatusCode(resource.getStatusCode());
 
     response.addHeaderField("Allow", "GET, HEAD");
 
@@ -57,5 +91,8 @@ bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpRespo
 }
 
 DefaultRequestHandler::~DefaultRequestHandler() {}
+
+
+
 
 } // namespace simpleHTTP
