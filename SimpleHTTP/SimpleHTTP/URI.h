@@ -6,6 +6,7 @@
 #include <string>
 #include <format>
 #include <compare>
+#include <filesystem>
 
 namespace simpleHTTP {
 
@@ -76,3 +77,5 @@ struct std::less<simpleHTTP::URI>
         return false;
     }
 };
+
+std::filesystem::path operator/(const std::filesystem::path& path, const simpleHTTP::URI& uri);

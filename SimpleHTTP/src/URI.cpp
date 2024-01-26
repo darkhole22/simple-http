@@ -324,3 +324,14 @@ std::string URI::toString() const {
 URI::~URI() {}
 
 }
+
+std::filesystem::path operator/(const std::filesystem::path& path, const simpleHTTP::URI& uri) {
+    std::string s = uri.toString();
+
+    if (s.size() <= 1) {
+        return path;
+    }
+
+    std::string_view view(s.data() + 1, s.size() - 1);
+    return path / std::filesystem::path(view);
+}

@@ -18,6 +18,7 @@ std::string RequestProcessor::getMethodsList() const {
 
     std::string result = httpMethodToString(it->first);
 
+    ++it;
     for (; it != end; ++it) {
         result.append(", ");
         result.append(httpMethodToString(it->first));
@@ -103,7 +104,7 @@ bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpRespo
         auto [ptr, ec] = std::to_chars(contentLengthS.data(),
                                        contentLengthS.data() + contentLengthS.size(),
                                        contentLength);
-        if (ec == std::errc()) {
+        if (ec != std::errc()) {
             return false;
         }
 
@@ -111,7 +112,9 @@ bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpRespo
     }
 
     ContentType contentType = resource->getContentType();
-    response.addHeaderField("Content-Type", contentType.toString());
+    if (contentType) {
+        response.addHeaderField("Content-Type", contentType.toString());
+    }
 
     response.send([&resource](ClientSocket* socket) {
         resource->sendCallback(socket);

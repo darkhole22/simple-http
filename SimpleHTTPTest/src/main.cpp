@@ -1,9 +1,10 @@
-#include <iostream>
 #include <SimpleHTTP/http.h>
 #include <SimpleHTTP/executor/DefaultExecutor.h>
 #include <SimpleHTTP/handler/DefaultRequestHandler.h>
 
+#include <iostream>
 #include <string>
+#include <fstream>
 
 using namespace simpleHTTP;
 constexpr unsigned long long BUFFER_SIZE = 1000ULL;
@@ -20,12 +21,38 @@ static const std::string indexHTML =
 "</body>"
 "</html>";
 
-static std::unique_ptr<Resource> getProcess(const HttpRequest&) {
-    return std::make_unique<Resource>();
+static std::filesystem::path serverRootPath = "data";
+
+static std::filesystem::path getPathFromURI(const URI& uri) {
+    return serverRootPath / uri;
 }
 
-static std::unique_ptr<Resource> headProcess(const HttpRequest&) {
-    return std::make_unique<Resource>();
+static std::unique_ptr<Resource> getProcess(const HttpRequest& request) {
+    return FileResource::make(getPathFromURI(request.getURI()));
+}
+
+static std::unique_ptr<Resource> headProcess(const HttpRequest& request) {
+    return FileResource::make(getPathFromURI(request.getURI()));
+}
+
+static bool readConfig(int argc, char const* argv[]) {
+    std::filesystem::path configPath(argv[0]);
+    configPath = configPath.parent_path() / "config.txt";
+
+
+    std::ifstream configFile(configPath);
+
+    if (!configFile) {
+        return false;
+    }
+    std::string line;
+    if (!std::getline(configFile, line)) {
+        return false;
+    }
+
+    serverRootPath = line;
+
+    return std::filesystem::exists(serverRootPath);
 }
 
 static void printInfo() {
@@ -36,9 +63,18 @@ static void printInfo() {
             "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") <<
             "\tIP: " << address.value << std::endl;
     }
+
+    std::cout << "Server Root: " << serverRootPath << std::endl;
 }
 
 int main(int argc, char const* argv[]) {
+    if (!readConfig(argc, argv)) {
+        std::cout << "Unable to read config file.\n"
+            "Please insert a valid root directory for the server in the first line of the config.txt file."
+            << std::endl;
+        return 1;
+    }
+
     try {
         printInfo();
 

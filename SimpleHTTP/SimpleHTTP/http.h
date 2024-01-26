@@ -11,9 +11,9 @@ namespace simpleHTTP {
 enum class HttpVersion : u32
 {
     UNKNOWN,
-    V0_9 = 900,
+    V0_9 = 9,
     V1_0 = 1000,
-    V1_1 = 1100,
+    V1_1 = 1001,
     V2_0 = 2000,
     V3_0 = 3000
 };
@@ -84,6 +84,58 @@ enum class StatusCode : StatusCodeType
     SEVICE_UNAVAILABLE = 503,
     GATEWAY_TIMEOUT = 504,
     HTTP_VERSION_NOT_SUPPORTED = 505
+};
+
+using MediaType = const char*;
+
+/*
+ * @brief
+ *
+ * @Complete list at https://www.iana.org/assignments/media-types/media-types.xhtml
+*/
+namespace MediaTypes {
+
+constexpr MediaType UNKNOWN = "";
+
+// application
+constexpr MediaType APPLICATION_JSON = "application/json";
+
+// audio
+constexpr MediaType AUDIO_AAC = "audio/aac";
+
+// font
+constexpr MediaType FONT_COLLECTION = "font/collection";
+constexpr MediaType FONT_OTF = "font/otf";
+constexpr MediaType FONT_SFNT = "font/sfnt";
+constexpr MediaType FONT_TTF = "font/ttf";
+constexpr MediaType FONT_WOFF = "font/woff";
+constexpr MediaType FONT_WOFF2 = "font/woff2";
+
+// example
+
+// image
+constexpr MediaType IMAGE_GIF = "image/gif";
+constexpr MediaType IMAGE_VND_MICROSOFT_ICON = "image/vnd.microsoft.icon";
+
+// message
+constexpr MediaType MESSAGE_HTTP = "message/http";
+
+// model
+
+// multipart
+constexpr MediaType MULTIPART_EXAMPLE = "multipart/example";
+
+// text
+constexpr MediaType TEXT_CSS = "text/css";
+constexpr MediaType TEXT_CSV = "text/csv";
+constexpr MediaType TEXT_HTML = "text/html";
+constexpr MediaType TEXT_JAVASCRIPT = "text/javascript";
+constexpr MediaType TEXT_PLAIN = "text/plain";
+
+// video
+constexpr MediaType VIDEO_AV1 = "video/AV1";
+constexpr MediaType VIDEO_MP4 = "video/mp4";
+
 };
 
 struct HttpServerSettings
