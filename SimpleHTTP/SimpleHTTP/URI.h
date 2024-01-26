@@ -5,6 +5,8 @@
 #include <string_view>
 #include <string>
 #include <format>
+#include <compare>
+#include <filesystem>
 
 namespace simpleHTTP {
 
@@ -27,12 +29,16 @@ public:
     std::string& getQuery();
     const std::string& getQuery() const;
 
+    bool isSubURI(const URI& other) const;
+
     std::string toString() const;
 
     URI& operator=(const URI& other) = default;
     URI& operator=(URI&& other) = default;
 
     ~URI();
+
+    friend struct std::less<URI>;
 private:
     bool m_IsAbsoluteURI = false;
     std::vector<std::string> m_Segments;
@@ -51,3 +57,25 @@ struct std::formatter<simpleHTTP::URI> : std::formatter<std::string>
 
     formatter() = default;
 };
+
+template <>
+struct std::less<simpleHTTP::URI>
+{
+    bool operator()(const simpleHTTP::URI& a, const simpleHTTP::URI& b) const {
+        if (a.m_Segments.size() != b.m_Segments.size()) {
+            return a.m_Segments.size() < b.m_Segments.size();
+        }
+
+        for (size_t i = 0; i < a.m_Segments.size(); i++) {
+            auto cmp = a.m_Segments[i] <=> b.m_Segments[i];
+            if (std::is_eq(cmp)) {
+                continue;
+            }
+            return std::is_lt(cmp);
+        }
+
+        return false;
+    }
+};
+
+std::filesystem::path operator/(const std::filesystem::path& path, const simpleHTTP::URI& uri);

@@ -1,12 +1,59 @@
-#include <iostream>
 #include <SimpleHTTP/http.h>
 #include <SimpleHTTP/executor/DefaultExecutor.h>
 #include <SimpleHTTP/handler/DefaultRequestHandler.h>
 
+#include <iostream>
 #include <string>
+#include <fstream>
 
 using namespace simpleHTTP;
 constexpr unsigned long long BUFFER_SIZE = 1000ULL;
+
+static const std::string indexHTML =
+"<!DOCTYPE html>"
+"<html lang=\'en\'>"
+"<head>"
+"<meta charset=\'utf-8\'>"
+"<title>Page Title</title>"
+"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"
+"</head>"
+"<body>"
+"</body>"
+"</html>";
+
+static std::filesystem::path serverRootPath = "data";
+
+static std::filesystem::path getPathFromURI(const URI& uri) {
+    return serverRootPath / uri;
+}
+
+static std::unique_ptr<Resource> getProcess(const HttpRequest& request) {
+    return FileResource::make(getPathFromURI(request.getURI()));
+}
+
+static std::unique_ptr<Resource> headProcess(const HttpRequest& request) {
+    return FileResource::make(getPathFromURI(request.getURI()));
+}
+
+static bool readConfig(int argc, char const* argv[]) {
+    std::filesystem::path configPath(argv[0]);
+    configPath = configPath.parent_path() / "config.txt";
+
+
+    std::ifstream configFile(configPath);
+
+    if (!configFile) {
+        return false;
+    }
+    std::string line;
+    if (!std::getline(configFile, line)) {
+        return false;
+    }
+
+    serverRootPath = line;
+
+    return std::filesystem::exists(serverRootPath);
+}
 
 static void printInfo() {
     auto addresses = getLocalAddresses();
@@ -16,9 +63,18 @@ static void printInfo() {
             "\tType: " << (address.type == AddressType::IPV4 ? "IPV4" : "IPV6") <<
             "\tIP: " << address.value << std::endl;
     }
+
+    std::cout << "Server Root: " << serverRootPath << std::endl;
 }
 
 int main(int argc, char const* argv[]) {
+    if (!readConfig(argc, argv)) {
+        std::cout << "Unable to read config file.\n"
+            "Please insert a valid root directory for the server in the first line of the config.txt file."
+            << std::endl;
+        return 1;
+    }
+
     try {
         printInfo();
 
@@ -35,7 +91,14 @@ int main(int argc, char const* argv[]) {
             server.stop();
         });
 
-        DefaultRequestHandler requestHandler{};
+        DefaultRequestHandlerSettings defaultRequestHandlerSettings{};
+
+        defaultRequestHandlerSettings.registerRequestProcessor("/", {
+                                                                   { HttpMethod::GET, getProcess},
+                                                                   { HttpMethod::HEAD, headProcess}
+                                                               });
+
+        DefaultRequestHandler requestHandler(defaultRequestHandlerSettings);
 
         executor.setProcessRequest([&requestHandler](const HttpRequest& request, HttpResponse& response) {
             return requestHandler.processRequest(request, response);

@@ -39,6 +39,6 @@ A Server Executor is an object that wraps an HTTP server to handle the connectio
 A Server Request Handler is an object that processes the incoming Request and generates the appropriate response.
 
  - [ ] Filter incoming Request
- - [ ] URI-based Request dispatch
- - [ ] Method-based Request dispatch
+ - [X] URI-based Request dispatch
+ - [X] Method-based Request dispatch
  - [ ] Resource abstraction

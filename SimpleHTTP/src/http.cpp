@@ -187,11 +187,11 @@ void HttpResponse::setVersion(HttpVersion version) {
 }
 
 void HttpResponse::setStatusCode(StatusCode code) {
-    setStatusCode(static_cast<u16>(code));
+    setStatusCode(static_cast<StatusCodeType>(code));
 }
 
-void HttpResponse::setStatusCode(u16 code) {
-    if (code > 999)
+void HttpResponse::setStatusCode(StatusCodeType code) {
+    if (code < 100 || code > 999)
         return;
 
     m_StatusCode = code;
@@ -248,40 +248,146 @@ void HttpResponse::send(std::function<void(ClientSocket*)> body) {
 
 void HttpResponse::generateDefaultReasonPhrase() {
     m_UseDefaultReasonPhrase = true;
-    switch (m_StatusCode) {
-    case 200: m_ReasonPhrase = "OK";
+
+    StatusCode code = static_cast<StatusCode>(m_StatusCode);
+
+    switch (code) {
+    case simpleHTTP::StatusCode::CONTINUE: m_ReasonPhrase = "Continue";
         break;
-    case 201: m_ReasonPhrase = "Created";
+    case simpleHTTP::StatusCode::SWITCHING_PROTOCOLS: m_ReasonPhrase = "Switching Protocols";
         break;
-    case 202: m_ReasonPhrase = "Accepted";
+    case simpleHTTP::StatusCode::OK: m_ReasonPhrase = "OK";
         break;
-    case 204: m_ReasonPhrase = "No Content";
+    case simpleHTTP::StatusCode::CREATED: m_ReasonPhrase = "Created";
         break;
-    case 301: m_ReasonPhrase = "Moved Permanently";
+    case simpleHTTP::StatusCode::ACCEPTED: m_ReasonPhrase = "Accepted";
         break;
-    case 302: m_ReasonPhrase = "Moved Temporarily";
+    case simpleHTTP::StatusCode::NON_AUTHORITATIVE_INFORMATION: m_ReasonPhrase = "Non-Authoritative Information";
         break;
-    case 304: m_ReasonPhrase = "Not Modified";
+    case simpleHTTP::StatusCode::NO_CONTENT: m_ReasonPhrase = "No Content";
         break;
-    case 400: m_ReasonPhrase = "Bad Request";
+    case simpleHTTP::StatusCode::RESET_REQUEST: m_ReasonPhrase = "Reset Content";
         break;
-    case 401: m_ReasonPhrase = "Unauthorized";
+    case simpleHTTP::StatusCode::PARTIAL_CONTENT: m_ReasonPhrase = "Partial Content";
         break;
-    case 403: m_ReasonPhrase = "Forbidden";
+    case simpleHTTP::StatusCode::MULTIPLE_CHOICES: m_ReasonPhrase = "Multiple Choices";
         break;
-    case 404: m_ReasonPhrase = "Not Found";
+    case simpleHTTP::StatusCode::MOVED_PERMANENTLY: m_ReasonPhrase = "Moved Permanently";
         break;
-    case 500: m_ReasonPhrase = "Internal Server Error";
+    case simpleHTTP::StatusCode::FOUND: m_ReasonPhrase = "Found";
         break;
-    case 501: m_ReasonPhrase = "Not Implemented";
+    case simpleHTTP::StatusCode::SEE_OTHER: m_ReasonPhrase = "See Other";
         break;
-    case 502: m_ReasonPhrase = "Bad Gateway";
+    case simpleHTTP::StatusCode::NOT_MODIFIED: m_ReasonPhrase = "Not Modified";
         break;
-    case 503: m_ReasonPhrase = "Service Unavailable";
+    case simpleHTTP::StatusCode::USE_PROXY: m_ReasonPhrase = "Use Proxy";
+        break;
+    case simpleHTTP::StatusCode::TEMPORARY_REDIRECT: m_ReasonPhrase = "Temporary Redirect";
+        break;
+    case simpleHTTP::StatusCode::PERMANENT_REDIRECT: m_ReasonPhrase = "Permanent Redirect";
+        break;
+    case simpleHTTP::StatusCode::BAD_REQUEST: m_ReasonPhrase = "Bad Request";
+        break;
+    case simpleHTTP::StatusCode::UNAUTHORIZED: m_ReasonPhrase = "Unauthorized";
+        break;
+    case simpleHTTP::StatusCode::PAYMENT_REQUIRED: m_ReasonPhrase = "Payment Required";
+        break;
+    case simpleHTTP::StatusCode::FORBIDDEN: m_ReasonPhrase = "Forbidden";
+        break;
+    case simpleHTTP::StatusCode::NOT_FOUND: m_ReasonPhrase = "Not Found";
+        break;
+    case simpleHTTP::StatusCode::METHOD_NOT_ALLOWED: m_ReasonPhrase = "Method Not Allowed";
+        break;
+    case simpleHTTP::StatusCode::NOT_ACCEPTABLE: m_ReasonPhrase = "Not Acceptable";
+        break;
+    case simpleHTTP::StatusCode::PROXY_AUTHENTICATION_REQUIRED: m_ReasonPhrase = "Proxy Authentication Required";
+        break;
+    case simpleHTTP::StatusCode::REQUEST_TIMEOUT: m_ReasonPhrase = "Request Timeout";
+        break;
+    case simpleHTTP::StatusCode::CONFLICT: m_ReasonPhrase = "Conflict";
+        break;
+    case simpleHTTP::StatusCode::GONE: m_ReasonPhrase = "Gone";
+        break;
+    case simpleHTTP::StatusCode::LENGTH_REQUIRED: m_ReasonPhrase = "Length Required";
+        break;
+    case simpleHTTP::StatusCode::PRECONDITION_FAILED: m_ReasonPhrase = "Precondition Failed";
+        break;
+    case simpleHTTP::StatusCode::CONTENT_TOO_LARGE: m_ReasonPhrase = "Content Too Large";
+        break;
+    case simpleHTTP::StatusCode::URI_TOO_LONG: m_ReasonPhrase = "URI Too Long";
+        break;
+    case simpleHTTP::StatusCode::UNSUPPORTED_MEDIA_TYPE: m_ReasonPhrase = "Unsupported Media Type";
+        break;
+    case simpleHTTP::StatusCode::RANGE_NOT_SATISFIABLE: m_ReasonPhrase = "Range Not Satisfiable";
+        break;
+    case simpleHTTP::StatusCode::EXPECTATION_FAILED: m_ReasonPhrase = "Expectation Failed";
+        break;
+    case simpleHTTP::StatusCode::I_AM_A_TEAPOT: m_ReasonPhrase = "I'm a Teapot";
+        break;
+    case simpleHTTP::StatusCode::MISDIRECTED_REQUEST: m_ReasonPhrase = "Misdirected Request";
+        break;
+    case simpleHTTP::StatusCode::UNPROCESSABLE_CONTENT: m_ReasonPhrase = "Unprocessable Content";
+        break;
+    case simpleHTTP::StatusCode::UPGRADE_REQUIRED: m_ReasonPhrase = "Upgrade Required";
+        break;
+    case simpleHTTP::StatusCode::INTERNAL_SERVER_ERROR: m_ReasonPhrase = "Internal Server Error";
+        break;
+    case simpleHTTP::StatusCode::NOT_IMPLEMENTED: m_ReasonPhrase = "Not Implemented";
+        break;
+    case simpleHTTP::StatusCode::BAD_GATEWAY: m_ReasonPhrase = "Bad Gateway";
+        break;
+    case simpleHTTP::StatusCode::SEVICE_UNAVAILABLE: m_ReasonPhrase = "Service Unavailable";
+        break;
+    case simpleHTTP::StatusCode::GATEWAY_TIMEOUT: m_ReasonPhrase = "Gateway Timeout";
+        break;
+    case simpleHTTP::StatusCode::HTTP_VERSION_NOT_SUPPORTED: m_ReasonPhrase = "HTTP Version Not Supported";
         break;
     default:
     break;
     }
+}
+
+bool isMajorHttpVersionGrater(HttpVersion _v1, HttpVersion _v2) {
+    u32 v1 = static_cast<u32>(_v1);
+    u32 v2 = static_cast<u32>(_v2);
+
+    return (v1 / 1000) > (v2 / 1000);
+}
+
+const char* httpMethodToString(HttpMethod m) {
+    switch (m) {
+    case simpleHTTP::HttpMethod::UNKNOWN:
+    return "UNKNOWN";
+
+    case simpleHTTP::HttpMethod::GET:
+    return "GET";
+
+    case simpleHTTP::HttpMethod::HEAD:
+    return "HEAD";
+
+    case simpleHTTP::HttpMethod::POST:
+    return "POST";
+
+    case simpleHTTP::HttpMethod::PUT:
+    return "PUT";
+
+    case simpleHTTP::HttpMethod::DELETE:
+    return "DELETE";
+
+    case simpleHTTP::HttpMethod::CONNECT:
+    return "CONNECT";
+
+    case simpleHTTP::HttpMethod::OPTIONS:
+    return "OPTIONS";
+
+    case simpleHTTP::HttpMethod::TRACE:
+    return "TRACE";
+
+    default:
+    break;
+    }
+
+    return "UNKNOWN";
 }
 
 } // namespace simpleHTTP

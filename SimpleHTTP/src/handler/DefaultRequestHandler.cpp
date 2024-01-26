@@ -1,57 +1,124 @@
 #include <SimpleHTTP/handler/DefaultRequestHandler.h>
 
 #include <iostream>
+#include <array>
+#include <numeric>
 
 namespace simpleHTTP {
 
-static const std::string indexHTML =
-"<!DOCTYPE html>"
-"<html lang=\'en\'>"
-"<head>"
-"<meta charset=\'utf-8\'>"
-"<title>Page Title</title>"
-"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"
-"</head>"
-"<body>"
-"</body>"
-"</html>";
+RequestProcessor::RequestProcessor(InitializerList processors)
+    : m_ProcessFunctions(processors.begin(), processors.end()) {}
 
-DefaultRequestHandler::DefaultRequestHandler() {}
+std::string RequestProcessor::getMethodsList() const {
+    auto it = m_ProcessFunctions.begin();
+    auto end = m_ProcessFunctions.end();
 
-bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpResponse& response) {
-    response.setVersion(HttpVersion::V1_0);
+    if (it == end)
+        return std::string();
+
+    std::string result = httpMethodToString(it->first);
+
+    ++it;
+    for (; it != end; ++it) {
+        result.append(", ");
+        result.append(httpMethodToString(it->first));
+    }
+
+    return result;
+}
+
+std::unique_ptr<Resource> RequestProcessor::operator()(const HttpRequest& request) const {
+    HttpMethod method = request.getMethod();
+
+    auto it = m_ProcessFunctions.find(method);
+
+    if (it != m_ProcessFunctions.end()) {
+        return it->second(request);
+    }
+
+    return std::make_unique<Resource>();
+}
+
+void DefaultRequestHandlerSettings::registerRequestProcessor(std::string_view uri,
+                                                             RequestProcessor::InitializerList processors) {
+    m_RequestProcessors.emplace(uri, processors);
+}
+
+DefaultRequestHandler::DefaultRequestHandler(const DefaultRequestHandlerSettings& settings)
+    : m_HttpVersion(settings.httpVersion), m_RequestProcessors(settings.m_RequestProcessors) {}
+
+bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpResponse& response) const {
+    if (m_RequestFilter && !m_RequestFilter(request)) {
+        return false;
+    }
+
+    response.setVersion(m_HttpVersion);
+
+    if (isMajorHttpVersionGrater(request.getVersion(), m_HttpVersion)) {
+        response.setStatusCode(StatusCode::HTTP_VERSION_NOT_SUPPORTED);
+        return true;
+    }
 
     HttpMethod method = request.getMethod();
     const URI& uri = request.getURI();
 
-    std::cout << std::format("Http Request: {} {} {}", request.getVersion(), method, uri) << std::endl;
+    if (m_RequestProcessors.size() == 0) {
+        return false;
+    }
 
-    // for (auto& fieldLine : request.getAllHeaderFields()) {
-    //     std::cout << std::format("\t{}: {}", fieldLine.first, fieldLine.second) << std::endl;
-    // }
+    const RequestProcessor* requestProcessor = nullptr;
+    {
+        auto it = m_RequestProcessors.crbegin();
+        for (; it != m_RequestProcessors.crend(); ++it) {
+            if (it->first.isSubURI(uri)) {
+                requestProcessor = &it->second;
+                break;
+            }
+        }
 
-    response.addHeaderField("Allow", "GET, HEAD");
+        if (it == m_RequestProcessors.crend()) {
+            return false;
+        }
+    }
 
-    if (method != HttpMethod::GET && method != HttpMethod::HEAD) {
-        response.setStatusCode(StatusCode::NOT_IMPLEMENTED);
+    if (requestProcessor == nullptr) {
+        return false;
+    }
+
+    auto resource = (*requestProcessor)(request);
+    response.setStatusCode(resource->getStatusCode());
+
+    response.addHeaderField("Allow", requestProcessor->getMethodsList());
+
+    response.addHeaderField("Cache-Control", "no-cache");
+    response.addHeaderField("X-Content-Type-Options", "nosniff");
+
+    u64 contentLength = resource->getContentLength();
+
+    if (contentLength == 0) {
         return true;
     }
 
-    if (uri.toString() == "/") {
-        response.setStatusCode(StatusCode::OK);
+    {
+        std::array<char, 22> contentLengthS{};
+        auto [ptr, ec] = std::to_chars(contentLengthS.data(),
+                                       contentLengthS.data() + contentLengthS.size(),
+                                       contentLength);
+        if (ec != std::errc()) {
+            return false;
+        }
 
-        response.addHeaderField("Content-Length", std::format("{}", indexHTML.size()));
-        response.addHeaderField("Content-Type", "text/html; charset=utf-8");
-        response.addHeaderField("Cache-Control", "no-cache");
-        response.addHeaderField("X-Content-Type-Options", "nosniff");
-
-        response.send([](ClientSocket* socket) {
-            socket->send(indexHTML.data(), indexHTML.size());
-        });
-        return true;
+        response.addHeaderField("Content-Length", std::string_view(contentLengthS.data(), ptr));
     }
 
-    response.setStatusCode(StatusCode::NOT_FOUND);
+    ContentType contentType = resource->getContentType();
+    if (contentType) {
+        response.addHeaderField("Content-Type", contentType.toString());
+    }
+
+    response.send([&resource](ClientSocket* socket) {
+        resource->sendCallback(socket);
+    });
 
     return true;
 }
