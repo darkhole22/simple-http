@@ -8,6 +8,26 @@
 using namespace simpleHTTP;
 constexpr unsigned long long BUFFER_SIZE = 1000ULL;
 
+static const std::string indexHTML =
+"<!DOCTYPE html>"
+"<html lang=\'en\'>"
+"<head>"
+"<meta charset=\'utf-8\'>"
+"<title>Page Title</title>"
+"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"
+"</head>"
+"<body>"
+"</body>"
+"</html>";
+
+static std::unique_ptr<Resource> getProcess(const HttpRequest&) {
+    return std::make_unique<Resource>();
+}
+
+static std::unique_ptr<Resource> headProcess(const HttpRequest&) {
+    return std::make_unique<Resource>();
+}
+
 static void printInfo() {
     auto addresses = getLocalAddresses();
 
@@ -36,6 +56,12 @@ int main(int argc, char const* argv[]) {
         });
 
         DefaultRequestHandlerSettings defaultRequestHandlerSettings{};
+
+        defaultRequestHandlerSettings.registerRequestProcessor("/", {
+                                                                   { HttpMethod::GET, getProcess},
+                                                                   { HttpMethod::HEAD, headProcess}
+                                                               });
+
         DefaultRequestHandler requestHandler(defaultRequestHandlerSettings);
 
         executor.setProcessRequest([&requestHandler](const HttpRequest& request, HttpResponse& response) {

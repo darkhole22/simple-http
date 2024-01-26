@@ -8,38 +8,33 @@ namespace simpleHTTP {
 class ContentType
 {
 public:
-    
+    std::string toString();
 private:
-};
-
-template<class Res>
-concept ResourceType = requires(Res res) {
-    { true };
-}&& requires(const Res res) {
-    { res.getStatusCode() } -> std::convertible_to<StatusCodeType>;
 };
 
 class Resource
 {
 public:
-    inline Resource()
-        : m_StatusCode(static_cast<StatusCodeType>(StatusCode::INTERNAL_SERVER_ERROR)) {}
+    virtual inline StatusCodeType getStatusCode() const {
+        return static_cast<StatusCodeType>(StatusCode::NOT_IMPLEMENTED);
+    }
 
-    Resource(const Resource& res) = delete;
+    virtual inline ContentType getContentType() const {
+        return ContentType();
+    }
 
-    template<ResourceType Res>
-    Resource(const Res& res)
-        : m_StatusCode(static_cast<StatusCodeType>(res.getStatusCode())) {
+    virtual inline u64 getContentLength() const {
+        return 0;
+    }
+
+    virtual void sendCallback(ClientSocket* socket) {
 
     }
 
-    inline StatusCodeType getStatusCode() const {
-        return m_StatusCode;
-    }
+    virtual inline ~Resource() {
 
-    Resource& operator=(const Resource& other) = delete;
+    }
 private:
-    StatusCodeType m_StatusCode;
 };
 
 }

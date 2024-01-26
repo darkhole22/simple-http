@@ -3,6 +3,7 @@
 
 #include <array>
 #include <stdexcept>
+#include <ranges>
 
 namespace simpleHTTP {
 
@@ -286,6 +287,23 @@ std::string& URI::getQuery() {
 
 const std::string& URI::getQuery() const {
     return m_Query;
+}
+
+bool URI::isSubURI(const URI& other) const {
+    if (other.m_Segments.size() < m_Segments.size()) {
+        return false;
+    }
+
+    auto segment = m_Segments.cbegin();
+    auto otherSegment = other.m_Segments.cbegin();
+
+    for (; segment != m_Segments.cend() && otherSegment != other.m_Segments.cend(); ++segment, ++otherSegment) {
+        if (*segment != *otherSegment) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 std::string URI::toString() const {

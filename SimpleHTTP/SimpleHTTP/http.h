@@ -25,8 +25,15 @@ enum class HttpMethod
     UNKNOWN,
     GET,
     HEAD,
-    POST
+    POST,
+    PUT,
+    DELETE,
+    CONNECT,
+    OPTIONS,
+    TRACE
 };
+
+const char* httpMethodToString(HttpMethod m);
 
 using StatusCodeType = u16;
 
@@ -228,22 +235,7 @@ template <>
 struct std::formatter<simpleHTTP::HttpMethod> : std::formatter<std::string>
 {
     auto format(simpleHTTP::HttpMethod v, format_context& ctx) const {
-        switch (v) {
-        case simpleHTTP::HttpMethod::UNKNOWN:
-        return formatter<string>::format("UNKNOWN", ctx);
-
-        case simpleHTTP::HttpMethod::GET:
-        return formatter<string>::format("GET", ctx);
-
-        case simpleHTTP::HttpMethod::HEAD:
-        return formatter<string>::format("HEAD", ctx);
-
-        case simpleHTTP::HttpMethod::POST:
-        return formatter<string>::format("POST", ctx);
-
-        default:
-        return formatter<string>::format("UNKNOWN", ctx);
-        }
+        return formatter<string>::format(simpleHTTP::httpMethodToString(v), ctx);
     }
 
     formatter() = default;

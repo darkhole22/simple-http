@@ -9,12 +9,14 @@ namespace simpleHTTP {
 class RequestProcessor
 {
 public:
-    using ProcessFunction = std::function<Resource(const HttpRequest&)>;
+    using ProcessFunction = std::function<std::unique_ptr<Resource>(const HttpRequest&)>;
     using InitializerList = std::initializer_list<std::pair<HttpMethod, ProcessFunction>>;
 
     RequestProcessor(InitializerList processors);
 
-    Resource operator()(const HttpRequest& request) const;
+    std::string getMethodsList() const;
+
+    std::unique_ptr<Resource> operator()(const HttpRequest& request) const;
 private:
     std::unordered_map<HttpMethod, ProcessFunction> m_ProcessFunctions;
 };

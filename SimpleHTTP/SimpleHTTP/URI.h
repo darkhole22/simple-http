@@ -28,6 +28,8 @@ public:
     std::string& getQuery();
     const std::string& getQuery() const;
 
+    bool isSubURI(const URI& other) const;
+
     std::string toString() const;
 
     URI& operator=(const URI& other) = default;
