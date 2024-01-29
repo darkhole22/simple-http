@@ -6,13 +6,28 @@
 #include <cctype>
 #include <algorithm>
 #include <format>
+#include <span>
 
 namespace simpleHTTP {
 
+static constexpr const u64 MAX_METHOD_LENGTH = 0xff;
 static constexpr const u64 MAX_ELEMENT_LENGTH = 0x2000;
+static constexpr const u64 MAX_VERSION_LENGTH = 0xff;
 
-static constexpr const std::array<i8, 2> CRLF = { '\r', '\n' };
-static constexpr const std::array<i8, 1> SP = { ' ' };
+static constexpr const std::array<i8, 2> CRLF = { 13, 10 };
+static constexpr const i8 SP = 32;
+static constexpr const i8 HTAB = 9;
+
+const HttpVersion HttpVersion::UNKNOWN{ 0,0 };
+const HttpVersion HttpVersion::V0_9{ 0,9 };
+const HttpVersion HttpVersion::V1_0{ 1,0 };
+const HttpVersion HttpVersion::V1_1{ 1,1 };
+const HttpVersion HttpVersion::V2_0{ 2,0 };
+const HttpVersion HttpVersion::V3_0{ 3,0 };
+
+bool HttpVersion::operator==(const HttpVersion& other) const noexcept {
+    return other.major == major && other.minor == minor;
+}
 
 static constexpr bool ignoreCaseEquals(std::string_view lhs, std::string_view rhs) {
     return std::ranges::equal(lhs, rhs, [](u8 a, u8 b) {
@@ -26,7 +41,7 @@ static constexpr bool useCaseEquals(std::string_view lhs, std::string_view rhs) 
 
 static constexpr const auto toLowerView = std::views::transform([](i8 c) -> i8 { return std::tolower(c); });
 
-static constexpr HttpMethod FromString(std::string_view str) {
+static constexpr HttpMethod getMethodFromString(std::string_view str) {
     if (ignoreCaseEquals(str, "GET")) {
         return HttpMethod::GET;
     }
@@ -36,26 +51,52 @@ static constexpr HttpMethod FromString(std::string_view str) {
     if (ignoreCaseEquals(str, "POST")) {
         return HttpMethod::POST;
     }
+    if (ignoreCaseEquals(str, "PUT")) {
+        return HttpMethod::PUT;
+    }
+    if (ignoreCaseEquals(str, "DELETE")) {
+        return HttpMethod::DELETE;
+    }
+    if (ignoreCaseEquals(str, "CONNECT")) {
+        return HttpMethod::CONNECT;
+    }
+    if (ignoreCaseEquals(str, "OPTIONS")) {
+        return HttpMethod::OPTIONS;
+    }
+    if (ignoreCaseEquals(str, "TRACE")) {
+        return HttpMethod::TRACE;
+    }
     return HttpMethod::UNKNOWN;
 }
 
 static constexpr HttpVersion getVersionFromString(std::string_view str) {
-    if (useCaseEquals(str, "HTTP/0.9")) {
-        return HttpVersion::V0_9;
+    if (str.size() < 8) {
+        return HttpVersion::UNKNOWN;
     }
-    if (useCaseEquals(str, "HTTP/1.0")) {
-        return HttpVersion::V1_0;
+
+    if (!(str[0] == 'H' && str[1] == 'T' && str[2] == 'T' && str[3] == 'P' && str[4] == '/')) {
+        return HttpVersion::UNKNOWN;
     }
-    if (useCaseEquals(str, "HTTP/1.1")) {
-        return HttpVersion::V1_1;
+
+    auto beginMajor = str.begin() + 5;
+    auto endMajor = beginMajor;
+    for (; endMajor != str.end() && *endMajor != '.'; ++endMajor) {
+
     }
-    if (useCaseEquals(str, "HTTP/2.0")) {
-        return HttpVersion::V2_0;
+    std::string_view major{ beginMajor , endMajor };
+    std::string_view minor{ endMajor + 1, str.end() };
+
+    HttpVersion result{};
+
+    if (std::from_chars(major.data(), major.data() + major.size(), result.major).ec != std::errc()) {
+        return HttpVersion::UNKNOWN;
     }
-    if (useCaseEquals(str, "HTTP/3.0")) {
-        return HttpVersion::V3_0;
+
+    if (std::from_chars(minor.data(), minor.data() + minor.size(), result.minor).ec != std::errc()) {
+        return HttpVersion::UNKNOWN;
     }
-    return HttpVersion::UNKNOWN;
+
+    return result;
 }
 
 HttpServerConnection::HttpServerConnection(ClientSocket&& socket)
@@ -96,37 +137,84 @@ HttpServer::~HttpServer() {
 
 HttpRequest::HttpRequest(ClientSocket* socket)
     : m_Socket(socket) {
-    std::array<i8, MAX_ELEMENT_LENGTH> buffer{};
+    // TODO: use custom allocator?
+    std::vector<i8> buffer{};
+    buffer.resize(MAX_METHOD_LENGTH + MAX_ELEMENT_LENGTH + MAX_VERSION_LENGTH + 2);
 
-    u64 methodLen = m_Socket->receiveUntil(buffer.data(), buffer.size(), SP.data(), SP.size());
-    std::string_view method(buffer.begin(), buffer.begin() + methodLen);
-    m_Method = FromString(method);
+    u64 requestLineLength = m_Socket->receiveUntil(buffer.data(), buffer.size(), CRLF.data(), CRLF.size());
+    if (requestLineLength == 0) {
+        // In the interest of robustness, a server that is expecting to receive and parse
+        // a request-line *SHOULD* ignore at least one empty line (CRLF) received prior to 
+        // the request-line.
+        // 
+        // https://datatracker.ietf.org/doc/html/rfc9112#section-2.2-6
+        requestLineLength = m_Socket->receiveUntil(buffer.data(), buffer.size(), CRLF.data(), CRLF.size());
+    }
 
-    u64 uriLen = m_Socket->receiveUntil(buffer.data(), buffer.size(), SP.data(), SP.size());
-    std::string_view uri(buffer.begin(), buffer.begin() + uriLen);
-    m_Uri = std::move(URI(uri));
+    auto methodEnd = std::find(buffer.begin(), buffer.end(), SP);
+    if (methodEnd == buffer.end()) {
+        throw std::runtime_error("Invalid request line.");
+    }
+    std::string_view method(buffer.begin(), methodEnd);
 
-    u64 versionLen = m_Socket->receiveUntil(buffer.data(), buffer.size(), CRLF.data(), CRLF.size());
-    std::string_view version(buffer.begin(), buffer.begin() + versionLen);
+    auto uriEnd = std::find(methodEnd + 1, buffer.end(), SP);
+    if (uriEnd == buffer.end()) {
+        throw std::runtime_error("Invalid request line.");
+    }
+    std::string_view uri(methodEnd + 1, uriEnd);
+
+    std::string_view version(uriEnd + 1, buffer.end());
     m_Version = getVersionFromString(version);
+
+    if (m_Version == HttpVersion::UNKNOWN || m_Version.major > 1) {
+        throw std::runtime_error(std::format("Invalid version detected {}.", m_Version));
+    }
+
+    m_Method = getMethodFromString(method);
+    if (m_Method == HttpMethod::UNKNOWN) {
+        // TODO implement bad request exception
+        throw std::runtime_error(std::format("Invalid method detected {}.", method));
+    }
+
+    m_Uri = std::move(URI(uri));
 
     u64 headerFieldLen = 0;
     do {
         headerFieldLen = m_Socket->receiveUntil(buffer.data(), buffer.size(), CRLF.data(), CRLF.size());
+        if (headerFieldLen == 0)
+            break;
 
         auto end = buffer.begin() + headerFieldLen;
         auto colon = std::find(buffer.begin(), end, ':');
+
+        constexpr auto isWhiteSpace = [](i8 c) {
+            return c == SP || c == HTAB;
+        };
+
+        auto whiteSpaceFieldName = std::find_if(buffer.begin(), colon, isWhiteSpace);
+
+        if (whiteSpaceFieldName != colon) {
+            // TODO implement bad request exception
+            throw std::runtime_error("Error while parsing Header fields.");
+        }
 
         if (colon == end)
             continue;
 
         auto fieldName = std::string_view(buffer.begin(), colon) | toLowerView;
 
-        auto beginField = std::find_if_not(colon + 1, end, [](i8 c) { return c == ' '; });
+        std::ranges::subrange fieldValue{ colon + 1, end };
+        auto beginField = std::find_if_not(fieldValue.begin(), fieldValue.end(), isWhiteSpace);
+        auto endField = std::find_if(beginField, fieldValue.end(), isWhiteSpace);
+
+        if (std::distance(beginField, endField) == 0) {
+            // TODO implement bad request exception
+            throw std::runtime_error("Error while parsing Header fields.");
+        }
 
         m_HeaderFields.emplace(std::piecewise_construct,
                                std::make_tuple(fieldName.begin(), fieldName.end()),
-                               std::make_tuple(beginField, end));
+                               std::make_tuple(beginField, endField));
     } while (headerFieldLen > 0);
 }
 
@@ -345,13 +433,6 @@ void HttpResponse::generateDefaultReasonPhrase() {
     default:
     break;
     }
-}
-
-bool isMajorHttpVersionGrater(HttpVersion _v1, HttpVersion _v2) {
-    u32 v1 = static_cast<u32>(_v1);
-    u32 v2 = static_cast<u32>(_v2);
-
-    return (v1 / 1000) > (v2 / 1000);
 }
 
 const char* httpMethodToString(HttpMethod m) {
