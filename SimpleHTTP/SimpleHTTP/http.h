@@ -8,17 +8,21 @@
 
 namespace simpleHTTP {
 
-enum class HttpVersion : u32
+class HttpVersion
 {
-    UNKNOWN,
-    V0_9 = 9,
-    V1_0 = 1000,
-    V1_1 = 1001,
-    V2_0 = 2000,
-    V3_0 = 3000
-};
+public:
+    u16 major = 0;
+    u16 minor = 0;
 
-bool isMajorHttpVersionGrater(HttpVersion v1, HttpVersion v2);
+    bool operator==(const HttpVersion& other) const noexcept;
+
+    static const HttpVersion UNKNOWN;
+    static const HttpVersion V0_9;
+    static const HttpVersion V1_0;
+    static const HttpVersion V1_1;
+    static const HttpVersion V2_0;
+    static const HttpVersion V3_0;
+};
 
 enum class HttpMethod
 {
@@ -256,28 +260,7 @@ template <>
 struct std::formatter<simpleHTTP::HttpVersion> : std::formatter<std::string>
 {
     auto format(simpleHTTP::HttpVersion v, format_context& ctx) const {
-        switch (v) {
-        case simpleHTTP::HttpVersion::UNKNOWN:
-        return formatter<string>::format("HTTP/0.0", ctx);
-
-        case simpleHTTP::HttpVersion::V0_9:
-        return formatter<string>::format("HTTP/0.9", ctx);
-
-        case simpleHTTP::HttpVersion::V1_0:
-        return formatter<string>::format("HTTP/1.0", ctx);
-
-        case simpleHTTP::HttpVersion::V1_1:
-        return formatter<string>::format("HTTP/1.1", ctx);
-
-        case simpleHTTP::HttpVersion::V2_0:
-        return formatter<string>::format("HTTP/2.0", ctx);
-
-        case simpleHTTP::HttpVersion::V3_0:
-        return formatter<string>::format("HTTP/3.0", ctx);
-
-        default:
-        return formatter<string>::format("HTTP/0.0", ctx);
-        }
+        return formatter<string>::format(std::format("HTTP/{}.{}", v.major, v.minor), ctx);
     }
 
     formatter() = default;

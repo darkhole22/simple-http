@@ -54,7 +54,7 @@ bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpRespo
 
     response.setVersion(m_HttpVersion);
 
-    if (isMajorHttpVersionGrater(request.getVersion(), m_HttpVersion)) {
+    if (request.getVersion().major > m_HttpVersion.major) {
         response.setStatusCode(StatusCode::HTTP_VERSION_NOT_SUPPORTED);
         return true;
     }
