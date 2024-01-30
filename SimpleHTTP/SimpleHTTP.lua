@@ -38,7 +38,9 @@ project "SimpleHTTP"
         {
         }
         
-        -- defines {  }
+        defines {
+            "NOMINMAX"
+        }
 
     filter "system:linux"
         systemversion "latest"

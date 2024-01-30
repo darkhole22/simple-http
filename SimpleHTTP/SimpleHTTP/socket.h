@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <span>
 
 namespace simpleHTTP {
 
@@ -52,9 +53,7 @@ class ClientSocket
 public:
     ClientSocket(Ref<ClientSocketImpl>&& impl);
 
-    inline u64 receive(void* buf, u64 size) {
-        return m_Implementation->receive(buf, size);
-    }
+    inline u64 receive(void* buf, u64 size);
 
     inline u64 send(const void* buf, u64 size) {
         return m_Implementation->send(buf, size);
@@ -68,8 +67,7 @@ public:
 private:
     Ref<ClientSocketImpl> m_Implementation;
     std::vector<u8> m_Cache;
-    std::vector<u8>::iterator m_CacheBegin;
-    std::vector<u8>::iterator m_CacheEnd;
+    std::span<u8> m_CacheRange;
 };
 
 class ServerSocket

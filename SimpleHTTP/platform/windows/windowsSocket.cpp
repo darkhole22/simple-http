@@ -12,11 +12,33 @@ static SOCKET platformAccept(SOCKET server) {
     return accept(server, NULL, NULL);
 }
 
-static simpleHTTP::i32 platformSend(SOCKET socket, const void* data, simpleHTTP::u64 size) {
-    return send(socket, reinterpret_cast<const char*>(data), size, 0);
-}
-
 namespace simpleHTTP {
+
+static constexpr u64 MAX_I32 = std::numeric_limits<i32>::max();
+
+static u64 platformSend(SOCKET socket, const void* data, u64 size) {
+    const u64 sent = size;
+    while (size > 0) {
+        i32 toSend = (size > MAX_I32) ? MAX_I32 : static_cast<i32>(size);
+
+        i32 len = send(socket, reinterpret_cast<const char*>(data), toSend, 0);
+
+        if (len == SOCKET_ERROR) {
+            throw std::runtime_error("send failed");
+        }
+
+        data = static_cast<const char*>(data) + len;
+
+        if (len > size) {
+            size = 0;
+            break;
+        }
+
+        size -= len;
+    }
+
+    return sent;
+}
 
 class WindowsSocketInitializer
 {
@@ -48,6 +70,7 @@ private:
 static WindowsSocketInitializer _initializer = {};
 
 static constexpr u64 MAX_HOST_NAME_LEN = 256;
+static constexpr u64 MAX_IPV4_NAME_LEN = 20;
 static constexpr u64 MAX_IPV6_NAME_LEN = 46;
 
 std::vector<Address> getLocalAddresses() {
@@ -79,24 +102,36 @@ std::vector<Address> getLocalAddresses() {
         case AF_INET:
         {
             sockaddr_in* sockaddr_ipv4 = reinterpret_cast<sockaddr_in*>(addr->ai_addr);
+            char ipStr[MAX_IPV4_NAME_LEN];
+            if (inet_ntop(AF_INET, &sockaddr_ipv4->sin_addr, ipStr, MAX_IPV4_NAME_LEN) == nullptr) {
+                // inet_ntop failed, making 'ipStr' an empty string.
+                ipStr[0] = 0;
+            }
+
             result.emplace_back(addr->ai_canonname == nullptr ? "" : addr->ai_canonname,
-                                inet_ntoa(sockaddr_ipv4->sin_addr), AddressType::IPV4);
+                                ipStr, AddressType::IPV4);
         }
         break;
         case AF_INET6:
         {
             LPSOCKADDR sockaddr_ip = (LPSOCKADDR)addr->ai_addr;
 
-            char ipStr[MAX_IPV6_NAME_LEN];
+            wchar_t ipStr[MAX_IPV6_NAME_LEN];
             DWORD ipStrLength = MAX_IPV6_NAME_LEN;
 
-            r = WSAAddressToStringA(sockaddr_ip, addr->ai_addrlen, nullptr, ipStr, &ipStrLength);
+            r = WSAAddressToStringW(sockaddr_ip, (DWORD)addr->ai_addrlen, nullptr, ipStr, &ipStrLength);
 
             if (r)
                 break;
+            ipStr[ipStrLength] = 0;
+
+            char strConv[MAX_IPV6_NAME_LEN * 2 + 1];
+            size_t convertedLen = 0;
+            wcstombs_s(&convertedLen, strConv, ipStr, _TRUNCATE);
+            strConv[convertedLen] = 0;
 
             result.emplace_back(addr->ai_canonname == nullptr ? "" : addr->ai_canonname,
-                                ipStr, AddressType::IPV6);
+                                strConv, AddressType::IPV6);
         }
         break;
         default:
@@ -108,10 +143,8 @@ std::vector<Address> getLocalAddresses() {
 }
 
 static u32 addressIPV4ToInt(std::string_view addr) {
-    using std::operator""sv;
-
     u32 result = 0;
-    for (const auto& val : std::views::split(addr, "."sv)) {
+    for (const auto& val : std::views::split(addr, ".")) {
         u32 i{};
         if (std::from_chars(val.data(), val.data() + val.size(), i).ec != std::errc{}) {
             continue;
@@ -160,23 +193,31 @@ WindowsClientSocket::WindowsClientSocket(SOCKET socket)
     : m_Socket(socket) {}
 
 u64 WindowsClientSocket::receive(void* buf, u64 size) {
-    i32 len = recv(m_Socket, reinterpret_cast<char*>(buf), size, 0);
+    const u64 received = size;
+    while (size > 0) {
+        i32 toReceive = (size > MAX_I32) ? MAX_I32 : static_cast<i32>(size);
 
-    if (len == SOCKET_ERROR) {
-        throw std::runtime_error("recv failed");
+        i32 len = recv(m_Socket, static_cast<char*>(buf), toReceive, 0);
+
+        if (len == SOCKET_ERROR) {
+            throw std::runtime_error("recv failed");
+        }
+
+        buf = static_cast<char*>(buf) + len;
+
+        if (len > size) {
+            size = 0;
+            break;
+        }
+
+        size -= len;
     }
 
-    return len;
+    return received;
 }
 
 u64 WindowsClientSocket::send(const void* buf, u64 size) {
-    i32 len = platformSend(m_Socket, buf, size);
-
-    if (len == SOCKET_ERROR) {
-        throw std::runtime_error("send failed");
-    }
-
-    return len;
+    return platformSend(m_Socket, buf, size);
 }
 
 void WindowsClientSocket::close() {
