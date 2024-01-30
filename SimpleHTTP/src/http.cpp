@@ -205,7 +205,9 @@ HttpRequest::HttpRequest(ClientSocket* socket)
 
         std::ranges::subrange fieldValue{ colon + 1, end };
         auto beginField = std::find_if_not(fieldValue.begin(), fieldValue.end(), isWhiteSpace);
-        auto endField = std::find_if(beginField, fieldValue.end(), isWhiteSpace);
+        auto endField = fieldValue.end();
+
+        for (; endField != beginField && isWhiteSpace(*beginField); --endField);
 
         if (std::distance(beginField, endField) == 0) {
             // TODO implement bad request exception

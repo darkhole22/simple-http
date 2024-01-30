@@ -193,7 +193,7 @@ WindowsClientSocket::WindowsClientSocket(SOCKET socket)
     : m_Socket(socket) {}
 
 u64 WindowsClientSocket::receive(void* buf, u64 size) {
-    const u64 received = size;
+    u64 received = 0;
     while (size > 0) {
         i32 toReceive = (size > MAX_I32) ? MAX_I32 : static_cast<i32>(size);
 
@@ -203,10 +203,10 @@ u64 WindowsClientSocket::receive(void* buf, u64 size) {
             throw std::runtime_error("recv failed");
         }
 
+        received += len;
         buf = static_cast<char*>(buf) + len;
 
-        if (len > size) {
-            size = 0;
+        if (len > size || len < toReceive) {
             break;
         }
 
