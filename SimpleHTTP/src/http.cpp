@@ -215,8 +215,8 @@ HttpRequest::HttpRequest(ClientSocket* socket)
         }
 
         m_HeaderFields.emplace(std::piecewise_construct,
-                               std::make_tuple(fieldName.begin(), fieldName.end()),
-                               std::make_tuple(beginField, endField));
+            std::make_tuple(fieldName.begin(), fieldName.end()),
+            std::make_tuple(beginField, endField));
     } while (headerFieldLen > 0);
 }
 
@@ -245,8 +245,8 @@ void HttpRequest::setHeaderField(std::string_view _name, std::string_view value)
 
     if (it == m_HeaderFields.end()) {
         m_HeaderFields.emplace(std::piecewise_construct,
-                               std::make_tuple(fieldName.begin(), fieldName.end()),
-                               std::make_tuple(value));
+            std::make_tuple(fieldName.begin(), fieldName.end()),
+            std::make_tuple(value));
         return;
     }
 
@@ -261,8 +261,8 @@ const HttpRequest::HeaderFieldsMap& HttpRequest::getAllHeaderFields() const {
 void HttpRequest::addHeaderField(std::string_view name, std::string_view value) {
     auto fieldName = name | toLowerView;
     m_HeaderFields.emplace(std::piecewise_construct,
-                           std::make_tuple(fieldName.begin(), fieldName.end()),
-                           std::make_tuple(value));
+        std::make_tuple(fieldName.begin(), fieldName.end()),
+        std::make_tuple(value));
 }
 
 HttpRequest::~HttpRequest() {}
@@ -426,48 +426,48 @@ void HttpResponse::generateDefaultReasonPhrase() {
         break;
     case simpleHTTP::StatusCode::BAD_GATEWAY: m_ReasonPhrase = "Bad Gateway";
         break;
-    case simpleHTTP::StatusCode::SEVICE_UNAVAILABLE: m_ReasonPhrase = "Service Unavailable";
+    case simpleHTTP::StatusCode::SERVICE_UNAVAILABLE: m_ReasonPhrase = "Service Unavailable";
         break;
     case simpleHTTP::StatusCode::GATEWAY_TIMEOUT: m_ReasonPhrase = "Gateway Timeout";
         break;
     case simpleHTTP::StatusCode::HTTP_VERSION_NOT_SUPPORTED: m_ReasonPhrase = "HTTP Version Not Supported";
         break;
     default:
-    break;
+        break;
     }
 }
 
 const char* httpMethodToString(HttpMethod m) {
     switch (m) {
     case simpleHTTP::HttpMethod::UNKNOWN:
-    return "UNKNOWN";
+        return "UNKNOWN";
 
     case simpleHTTP::HttpMethod::GET:
-    return "GET";
+        return "GET";
 
     case simpleHTTP::HttpMethod::HEAD:
-    return "HEAD";
+        return "HEAD";
 
     case simpleHTTP::HttpMethod::POST:
-    return "POST";
+        return "POST";
 
     case simpleHTTP::HttpMethod::PUT:
-    return "PUT";
+        return "PUT";
 
     case simpleHTTP::HttpMethod::DELETE:
-    return "DELETE";
+        return "DELETE";
 
     case simpleHTTP::HttpMethod::CONNECT:
-    return "CONNECT";
+        return "CONNECT";
 
     case simpleHTTP::HttpMethod::OPTIONS:
-    return "OPTIONS";
+        return "OPTIONS";
 
     case simpleHTTP::HttpMethod::TRACE:
-    return "TRACE";
+        return "TRACE";
 
     default:
-    break;
+        break;
     }
 
     return "UNKNOWN";
