@@ -161,7 +161,7 @@ HttpRequest::HttpRequest(ClientSocket* socket)
     if (uriEnd == buffer.end()) {
         throw std::runtime_error("Invalid request line.");
     }
-    std::string_view uri(methodEnd + 1, uriEnd);
+    std::string uri(methodEnd + 1, uriEnd);
 
     std::string_view version(uriEnd + 1, buffer.end());
     m_Version = getVersionFromString(version);
@@ -175,8 +175,6 @@ HttpRequest::HttpRequest(ClientSocket* socket)
         // TODO implement bad request exception
         throw std::runtime_error(std::format("Invalid method detected {}.", method));
     }
-
-    m_Uri = std::move(URI(uri));
 
     u64 headerFieldLen = 0;
     do {
@@ -218,6 +216,22 @@ HttpRequest::HttpRequest(ClientSocket* socket)
             std::make_tuple(fieldName.begin(), fieldName.end()),
             std::make_tuple(beginField, endField));
     } while (headerFieldLen > 0);
+
+    auto hostsRange = m_HeaderFields.equal_range("host");
+
+    if (std::distance(hostsRange.first, hostsRange.second) != 1) {
+        // TODO implement bad request exception
+        throw std::runtime_error("A valid Request must contain exactly one 'Host' field.");
+    }
+
+    try
+    {
+        m_Uri = URI(hostsRange.first->second + uri);
+    }
+    catch (...) {
+        // TODO implement bad request exception
+        throw std::runtime_error("Error while parsing the request uri.");
+    }
 }
 
 std::string HttpRequest::getFieldNameIgnoreCase(std::string_view name) const {

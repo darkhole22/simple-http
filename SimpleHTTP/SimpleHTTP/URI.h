@@ -7,27 +7,28 @@
 #include <format>
 #include <compare>
 #include <filesystem>
+#include <tuple>
 
 namespace simpleHTTP {
 
 class URI
 {
 public:
+    using StringRange = std::pair<u64, u64>;
+
     URI();
-    URI(std::string_view uri);
+    explicit URI(std::string_view uri);
+
     URI(const URI& other) = default;
     URI(URI&& other) = default;
 
-    inline bool isAbsolute() const { return m_IsAbsoluteURI; }
+    std::vector<std::string_view> getSegments();
+    const std::vector<std::string_view> getSegments() const;
 
-    std::vector<std::string>& getSegments();
-    const std::vector<std::string>& getSegments() const;
+    const std::string_view getSegmentsSection() const;
 
-    std::vector<std::string>& getParameters();
-    const std::vector<std::string>& getParameters() const;
-
-    std::string& getQuery();
-    const std::string& getQuery() const;
+    std::string_view getQuery();
+    const std::string_view getQuery() const;
 
     bool isSubURI(const URI& other) const;
 
@@ -40,10 +41,13 @@ public:
 
     friend struct std::less<URI>;
 private:
-    bool m_IsAbsoluteURI = false;
-    std::vector<std::string> m_Segments;
-    std::vector<std::string> m_Parameters;
-    std::string m_Query;
+    std::string m_Raw;
+
+    StringRange m_Scheme;
+    StringRange m_Authority;
+    std::vector<StringRange> m_Segments;
+    StringRange m_Query;
+    StringRange m_Fragment;
 };
 
 }

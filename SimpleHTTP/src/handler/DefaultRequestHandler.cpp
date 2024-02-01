@@ -40,7 +40,7 @@ std::unique_ptr<Resource> RequestProcessor::operator()(const HttpRequest& reques
 }
 
 void DefaultRequestHandlerSettings::registerRequestProcessor(std::string_view uri,
-                                                             RequestProcessor::InitializerList processors) {
+    RequestProcessor::InitializerList processors) {
     m_RequestProcessors.emplace(uri, processors);
 }
 
@@ -102,8 +102,8 @@ bool DefaultRequestHandler::processRequest(const HttpRequest& request, HttpRespo
     {
         std::array<char, 22> contentLengthS{};
         auto [ptr, ec] = std::to_chars(contentLengthS.data(),
-                                       contentLengthS.data() + contentLengthS.size(),
-                                       contentLength);
+            contentLengthS.data() + contentLengthS.size(),
+            contentLength);
         if (ec != std::errc()) {
             return false;
         }

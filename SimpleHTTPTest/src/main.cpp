@@ -7,19 +7,6 @@
 #include <fstream>
 
 using namespace simpleHTTP;
-constexpr unsigned long long BUFFER_SIZE = 1000ULL;
-
-static const std::string indexHTML =
-"<!DOCTYPE html>"
-"<html lang=\'en\'>"
-"<head>"
-"<meta charset=\'utf-8\'>"
-"<title>Page Title</title>"
-"<meta name=\'viewport\' content=\'width=device-width, initial-scale=1\'>"
-"</head>"
-"<body>"
-"</body>"
-"</html>";
 
 static std::filesystem::path serverRootPath = "data";
 
@@ -96,7 +83,7 @@ int main(int argc, char const* argv[]) {
         defaultRequestHandlerSettings.registerRequestProcessor("/", {
                                                                    { HttpMethod::GET, getProcess},
                                                                    { HttpMethod::HEAD, headProcess}
-                                                               });
+            });
 
         DefaultRequestHandler requestHandler(defaultRequestHandlerSettings);
 
@@ -105,7 +92,8 @@ int main(int argc, char const* argv[]) {
         });
 
         executor.run(server);
-    } catch (std::exception& ex) {
+    }
+    catch (std::exception& ex) {
         std::cerr << ex.what() << std::endl;
     }
     return 0;
