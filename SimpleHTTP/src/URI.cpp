@@ -58,13 +58,12 @@ class URIBuilder
 {
 public:
     URIBuilder(
-        std::string& raw,
         URI::StringRange& scheme,
         URI::StringRange& authority,
         std::vector<URI::StringRange>& segments,
         URI::StringRange& query,
         URI::StringRange& fragment)
-        : m_Raw(raw), m_Scheme(scheme), m_Authority(authority), m_Segments(segments),
+        : m_Scheme(scheme), m_Authority(authority), m_Segments(segments),
         m_Query(query), m_Fragment(fragment) {}
 
     bool build(std::string_view input);
@@ -90,8 +89,22 @@ public:
         return std::distance(input.begin(), head);
     }
 
+    constexpr void appendSegment(u64 first, u64 second) {
+        std::string_view segment(input.begin() + first, input.begin() + second);
+
+        if (segment.size() == 0 || segment == ".")
+            return;
+
+        if (segment == "..") {
+            if (m_Segments.size() > 0) {
+                m_Segments.pop_back();
+            }
+            return;
+        }
+        m_Segments.emplace_back(first, second);
+    }
+
 private:
-    std::string& m_Raw;
     URI::StringRange& m_Scheme;
     URI::StringRange& m_Authority;
     std::vector<URI::StringRange>& m_Segments;
@@ -108,8 +121,6 @@ bool URIBuilder::build(std::string_view _input) {
     head = std::begin(input);
     end = std::end(input);
 
-    m_Raw = _input;
-
     if (!hasNext())
         return false;
 
@@ -117,7 +128,7 @@ bool URIBuilder::build(std::string_view _input) {
     auto parseAuthority = [&isAbempty, this]() {
         // parse authority
         pop();
-        u64 beginAuthority = getOffset(); // TODO: replace with m_Raw iterator
+        u64 beginAuthority = getOffset();
         while (hasNext() && peek() != '/') {
             pop();
             // TODO: Validate authority? Authority class?
@@ -191,7 +202,7 @@ bool URIBuilder::build(std::string_view _input) {
         if (hasNext() && peek() != '/')
             return false;
 
-        m_Segments.emplace_back(beginSegmentNz, getOffset());
+        appendSegment(beginSegmentNz, getOffset());
     }
 
     // *( "/" segment )
@@ -204,9 +215,7 @@ bool URIBuilder::build(std::string_view _input) {
             pop();
         }
 
-        if (getOffset() - beginSegment > 0) {
-            m_Segments.emplace_back(beginSegment, getOffset());
-        }
+        appendSegment(beginSegment, getOffset());
 
         if (hasNext() && peek() != '/')
             break;
@@ -251,12 +260,60 @@ bool URIBuilder::build(std::string_view _input) {
 URI::URI() {}
 
 URI::URI(std::string_view uri) {
-    URIBuilder builder(m_Raw, m_Scheme, m_Authority, m_Segments, m_Query, m_Fragment);
+    URIBuilder builder(m_Scheme, m_Authority, m_Segments, m_Query, m_Fragment);
 
     if (!builder.build(uri)) {
         throw std::runtime_error("Invalid URI!");
     }
-    // TODO: remove dot segments
+    m_Raw.reserve(uri.size());
+
+    auto getSubstr = [uri](StringRange view) {
+        return uri.substr(view.first, view.second - view.first);
+    };
+
+    auto getSize = [](StringRange view) {
+        return view.second - view.first;
+    };
+
+    if (getSize(m_Scheme) > 0) {
+        m_Raw.append(getSubstr(m_Scheme));
+        m_Raw.push_back(':');
+    }
+
+    m_Raw.append(getSubstr(m_Authority));
+
+    if (m_Segments.size() == 0) {
+        m_Raw.push_back('/');
+    }
+
+    for (auto& segment : m_Segments) {
+        m_Raw.push_back('/');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(segment));
+
+        segment.first = first;
+        segment.second = m_Raw.size();
+    }
+
+    if (getSize(m_Query) > 0) {
+        m_Raw.push_back('?');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(m_Query));
+
+        m_Query.first = first;
+        m_Query.second = m_Raw.size();
+    }
+
+    if (getSize(m_Fragment) > 0) {
+        m_Raw.push_back('#');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(m_Fragment));
+
+        m_Fragment.first = first;
+        m_Fragment.second = m_Raw.size();
+    }
+
+    m_Raw.shrink_to_fit();
 }
 
 std::vector<std::string_view> URI::getSegments() {
