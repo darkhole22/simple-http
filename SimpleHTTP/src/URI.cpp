@@ -1,5 +1,4 @@
 #include <SimpleHTTP/URI.h>
-#include "fsm.h"
 
 #include <array>
 #include <stdexcept>
@@ -58,235 +57,298 @@ static constexpr bool isPChar(i8 c) {
 class URIBuilder
 {
 public:
-    URIBuilder(std::vector<std::string>& segments,
-               std::vector<std::string>& parameters,
-               std::string& query) :
-        m_Segments(segments), m_Parameters(parameters), m_Query(query) {}
+    URIBuilder(
+        URI::StringRange& scheme,
+        URI::StringRange& authority,
+        std::vector<URI::StringRange>& segments,
+        URI::StringRange& query,
+        URI::StringRange& fragment)
+        : m_Scheme(scheme), m_Authority(authority), m_Segments(segments),
+        m_Query(query), m_Fragment(fragment) {}
 
-    void startSegment() {
-        if (m_Segments.size() <= 0)
-            m_Segments.emplace_back();
+    bool build(std::string_view input);
 
-        if (m_Segments[m_Segments.size() - 1].size() > 0)
-            m_Segments.emplace_back();
+    constexpr bool hasNext() {
+        return head != end;
     }
 
-    void buildSegment(i8 c) {
-        if (m_Segments.size() <= 0)
+    constexpr [[nodiscard]] i8 peek() {
+        return *head;
+    }
+
+    template <typename Pred>
+    constexpr [[nodiscard]] bool peek(Pred f) {
+        return f(*head);
+    }
+
+    constexpr i8 pop() {
+        return *(head++);
+    }
+
+    constexpr u64 getOffset() {
+        return std::distance(input.begin(), head);
+    }
+
+    constexpr void appendSegment(u64 first, u64 second) {
+        std::string_view segment(input.begin() + first, input.begin() + second);
+
+        if (segment.size() == 0 || segment == ".")
             return;
 
-        m_Segments[m_Segments.size() - 1].push_back(c);
-    }
-
-    void startParameter() {
-        m_Parameters.emplace_back();
-    }
-
-    void buildParameter(i8 c) {
-        if (m_Parameters.size() <= 0)
+        if (segment == "..") {
+            if (m_Segments.size() > 0) {
+                m_Segments.pop_back();
+            }
             return;
-
-        m_Parameters[m_Parameters.size() - 1].push_back(c);
+        }
+        m_Segments.emplace_back(first, second);
     }
 
-    void buildQuery(i8 c) {
-        m_Query.push_back(c);
-    }
 private:
-    std::vector<std::string>& m_Segments;
-    std::vector<std::string>& m_Parameters;
-    std::string& m_Query;
+    URI::StringRange& m_Scheme;
+    URI::StringRange& m_Authority;
+    std::vector<URI::StringRange>& m_Segments;
+    URI::StringRange& m_Query;
+    URI::StringRange& m_Fragment;
+
+    std::string_view input;
+    std::string_view::const_iterator head;
+    std::string_view::const_iterator end;
 };
 
-enum class URIParserState
-{
-    S0,
-    F_SEGMENT,
-    SEGMENT,
-    PARAMS,
-    ESCAPE_SEGMENT_1,
-    ESCAPE_SEGMENT_2,
-    QUERY,
-    ESCAPE_PARAMS_1,
-    ESCAPE_PARAMS_2,
-    LAST
-};
+bool URIBuilder::build(std::string_view _input) {
+    input = _input;
+    head = std::begin(input);
+    end = std::end(input);
 
-using URIParser = ParserFSM<URIParserState, URIBuilder, i8>;
+    if (!hasNext())
+        return false;
 
-static URIParserState s0_function(URIBuilder* builder, i8 c) {
-    if (c == '/') {
-        return URIParserState::F_SEGMENT;
+    bool isAbempty = false;
+    auto parseAuthority = [&isAbempty, this]() {
+        // parse authority
+        pop();
+        u64 beginAuthority = getOffset();
+        while (hasNext() && peek() != '/') {
+            pop();
+            // TODO: Validate authority? Authority class?
+        }
+
+        if (!hasNext())
+            return false;
+
+        m_Authority = { beginAuthority, getOffset() };
+
+        isAbempty = true;
+        return true;
+    };
+
+    if (peek(isAlpha)) {
+        u64 beginScheme = getOffset();
+        pop();
+
+        while (hasNext() && peek([](i8 c) {
+            return isAlpha(c) || isDigit(c) || c == '+' || c == '-' || c == '.';
+        })) {
+            pop();
+        }
+
+        if (!hasNext())
+            return false;
+
+        m_Scheme = { beginScheme, getOffset() };
+
+        if (pop() != ':')
+            return false;
+
+        if (!hasNext()) {
+            // path-empty with no query and no fragment
+            return true;
+        }
+
+        if (peek() == '/') {
+            pop();
+            // "//" authority path-abempty or path-absolute 
+
+            if (!hasNext())
+                return false;
+
+            if (peek() == '/') {
+                if (!parseAuthority())
+                    return false;
+            }
+        }
+    }
+    else {
+        if (hasNext() && peek() == '/')
+            isAbempty = true;
+
+        if (hasNext() && peek() != '/' && !parseAuthority())
+            return false;
     }
 
-    return URIParserState::LAST;
-};
+    if (!isAbempty) {
+        // parse segment_nz
+        if (!hasNext() || !peek(isPChar))
+            return false;
 
-static URIParserState fSegment_function(URIBuilder* builder, i8 c) {
-    if (isPChar(c)) {
-        builder->startSegment();
-        builder->buildSegment(c);
-        return URIParserState::SEGMENT;
+        u64 beginSegmentNz = getOffset();
+        pop();
+
+        while (hasNext() && peek(isPChar)) {
+            pop();
+        }
+
+        if (hasNext() && peek() != '/')
+            return false;
+
+        appendSegment(beginSegmentNz, getOffset());
     }
 
-    if (c == '%') {
-        builder->startSegment();
-        builder->buildSegment(c);
-        return URIParserState::ESCAPE_SEGMENT_1;
+    // *( "/" segment )
+    while (hasNext() && peek() == '/')
+    {
+        // /abcd/abcd/
+        pop();
+        u64 beginSegment = getOffset();
+        while (hasNext() && peek(isPChar)) {
+            pop();
+        }
+
+        appendSegment(beginSegment, getOffset());
+
+        if (hasNext() && peek() != '/')
+            break;
     }
 
-    if (c == ';') {
-        builder->startParameter();
-        return URIParserState::PARAMS;
+    // pase query
+    if (hasNext() && peek() == '?') {
+        pop();
+        u64 beginQuery = getOffset();
+        while (hasNext() && peek([](i8 c) {
+            return isPChar(c) || c == '/' || c == '?';
+        })) {
+            pop();
+        }
+
+        m_Query = { beginQuery, getOffset() };
     }
 
-    if (c == '?') {
-        return URIParserState::QUERY;
+    // parse fragment
+    if (hasNext() && peek() != '#')
+        return false;
+
+    if (!hasNext())
+        return true;
+
+    pop();
+
+    u64 beginFragment = getOffset();
+    while (hasNext() && peek([](i8 c) {
+        return isPChar(c) || c == '/' || c == '?';
+    })) {
+        pop();
     }
 
-    return URIParserState::LAST;
-};
+    if (hasNext())
+        return false;
 
-static URIParserState segment_function(URIBuilder* builder, i8 c) {
-    if (isPChar(c)) {
-        builder->buildSegment(c);
-        return URIParserState::SEGMENT;
-    }
-
-    if (c == '%') {
-        builder->buildSegment(c);
-        return URIParserState::ESCAPE_SEGMENT_1;
-    }
-
-    if (c == '/') {
-        builder->startSegment();
-        return URIParserState::SEGMENT;
-    }
-
-    if (c == ';') {
-        builder->startParameter();
-        return URIParserState::PARAMS;
-    }
-
-    if (c == '?') {
-        return URIParserState::QUERY;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState params_function(URIBuilder* builder, i8 c) {
-    if (isPChar(c) || c == '/') {
-        builder->buildParameter(c);
-        return URIParserState::PARAMS;
-    }
-
-    if (c == '%') {
-        builder->buildParameter(c);
-        return URIParserState::ESCAPE_PARAMS_1;
-    }
-
-    if (c == ';') {
-        builder->startParameter();
-        return URIParserState::PARAMS;
-    }
-
-    if (c == '?') {
-        return URIParserState::QUERY;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState escapeSegment1_function(URIBuilder* builder, i8 c) {
-    if (isHex(c)) {
-        builder->buildSegment(c);
-        return URIParserState::ESCAPE_SEGMENT_2;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState escapeSegment2_function(URIBuilder* builder, i8 c) {
-    if (isHex(c)) {
-        builder->buildSegment(c);
-        return URIParserState::SEGMENT;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState query_function(URIBuilder* builder, i8 c) {
-    if (isUChar(c) || isReserved(c)) {
-        builder->buildQuery(c);
-        return URIParserState::QUERY;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState escapeParams1_function(URIBuilder* builder, i8 c) {
-    if (isHex(c)) {
-        builder->buildParameter(c);
-        return URIParserState::ESCAPE_PARAMS_2;
-    }
-
-    return URIParserState::LAST;
-};
-
-static URIParserState escapeParams2_function(URIBuilder* builder, i8 c) {
-    if (isHex(c)) {
-        builder->buildParameter(c);
-        return URIParserState::PARAMS;
-    }
-
-    return URIParserState::LAST;
-};
-
-constexpr URIParser parser = {
-    s0_function,
-    fSegment_function,
-    segment_function,
-    params_function,
-    escapeSegment1_function,
-    escapeSegment2_function,
-    query_function,
-    escapeParams1_function,
-    escapeParams2_function,
-};
+    m_Fragment = { beginFragment, getOffset() };
+    return true;
+}
 
 URI::URI() {}
 
 URI::URI(std::string_view uri) {
-    URIBuilder builder(m_Segments, m_Parameters, m_Query);
+    URIBuilder builder(m_Scheme, m_Authority, m_Segments, m_Query, m_Fragment);
 
-    if (!parser.parse(&builder, uri, URIParserState::S0)) {
+    if (!builder.build(uri)) {
         throw std::runtime_error("Invalid URI!");
     }
+    m_Raw.reserve(uri.size());
+
+    auto getSubstr = [uri](StringRange view) {
+        return uri.substr(view.first, view.second - view.first);
+    };
+
+    auto getSize = [](StringRange view) {
+        return view.second - view.first;
+    };
+
+    if (getSize(m_Scheme) > 0) {
+        m_Raw.append(getSubstr(m_Scheme));
+        m_Raw.push_back(':');
+    }
+
+    m_Raw.append(getSubstr(m_Authority));
+
+    if (m_Segments.size() == 0) {
+        m_Raw.push_back('/');
+    }
+
+    for (auto& segment : m_Segments) {
+        m_Raw.push_back('/');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(segment));
+
+        segment.first = first;
+        segment.second = m_Raw.size();
+    }
+
+    if (getSize(m_Query) > 0) {
+        m_Raw.push_back('?');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(m_Query));
+
+        m_Query.first = first;
+        m_Query.second = m_Raw.size();
+    }
+
+    if (getSize(m_Fragment) > 0) {
+        m_Raw.push_back('#');
+        u64 first = m_Raw.size();
+        m_Raw.append(getSubstr(m_Fragment));
+
+        m_Fragment.first = first;
+        m_Fragment.second = m_Raw.size();
+    }
+
+    m_Raw.shrink_to_fit();
 }
 
-std::vector<std::string>& URI::getSegments() {
-    return m_Segments;
+std::vector<std::string_view> URI::getSegments() {
+    std::vector<std::string_view> segments;
+    for (auto& segment : m_Segments) {
+        segments.emplace_back(m_Raw.begin() + segment.first, m_Raw.begin() + segment.second);
+    }
+    return segments;
 }
 
-const std::vector<std::string>& URI::getSegments() const {
-    return m_Segments;
+const std::vector<std::string_view> URI::getSegments() const {
+    std::vector<std::string_view> segments;
+    for (auto& segment : m_Segments) {
+        segments.emplace_back(m_Raw.begin() + segment.first, m_Raw.begin() + segment.second);
+    }
+    return segments;
 }
 
-std::vector<std::string>& URI::getParameters() {
-    return m_Parameters;
+const std::string_view URI::getSegmentsSection() const
+{
+    if (m_Segments.size() == 0)
+        return std::string_view();
+
+    auto first = m_Segments.front().first;
+    auto last = m_Segments.back().second;
+
+    return std::string_view(m_Raw.begin() + first, m_Raw.begin() + last);
 }
 
-const std::vector<std::string>& URI::getParameters() const {
-    return m_Parameters;
+std::string_view URI::getQuery() {
+    return std::string_view(m_Raw.begin() + m_Query.first, m_Raw.begin() + m_Query.second);
 }
 
-std::string& URI::getQuery() {
-    return m_Query;
-}
-
-const std::string& URI::getQuery() const {
-    return m_Query;
+const std::string_view URI::getQuery() const {
+    return std::string_view(m_Raw.begin() + m_Query.first, m_Raw.begin() + m_Query.second);
 }
 
 bool URI::isSubURI(const URI& other) const {
@@ -307,18 +369,7 @@ bool URI::isSubURI(const URI& other) const {
 }
 
 std::string URI::toString() const {
-    std::string result;
-
-    for (auto& segment : m_Segments) {
-        result.append("/");
-        result.append(segment);
-    }
-
-    if (result.size() == 0) {
-        result.append("/");
-    }
-
-    return result;
+    return m_Raw;
 }
 
 URI::~URI() {}
@@ -326,12 +377,11 @@ URI::~URI() {}
 }
 
 std::filesystem::path operator/(const std::filesystem::path& path, const simpleHTTP::URI& uri) {
-    std::string s = uri.toString();
+    auto segment = uri.getSegmentsSection();
 
-    if (s.size() <= 1) {
+    if (segment.size() < 1) {
         return path;
     }
 
-    std::string_view view(s.data() + 1, s.size() - 1);
-    return path / std::filesystem::path(view);
+    return path / segment;
 }
