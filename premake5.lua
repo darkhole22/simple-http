@@ -6,5 +6,5 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
 include ("SimpleHTTP/SimpleHTTP")
 
-include ("SimpleHTTPTest/SimpleHTTPTest")
+include ("SimpleHTTPTestbed/SimpleHTTPTestbed")
 
