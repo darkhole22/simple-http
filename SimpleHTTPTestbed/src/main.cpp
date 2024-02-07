@@ -11,7 +11,25 @@ using namespace simpleHTTP;
 static std::filesystem::path serverRootPath = "data";
 
 static std::filesystem::path getPathFromURI(const URI& uri) {
-    return serverRootPath / uri;
+    auto path = serverRootPath / uri;
+    std::error_code ec;
+
+    if (std::filesystem::equivalent(path, serverRootPath, ec)) {
+        return path / "index.html";
+    }
+
+    if (std::filesystem::is_regular_file(path, ec)) {
+        return path;
+    }
+
+    auto pathWithExtension = path;
+    pathWithExtension.replace_extension("html");
+
+    if (std::filesystem::is_regular_file(pathWithExtension, ec)) {
+        return pathWithExtension;
+    }
+
+    return (path / path.filename()).replace_extension("html");
 }
 
 static std::unique_ptr<Resource> getProcess(const HttpRequest& request) {

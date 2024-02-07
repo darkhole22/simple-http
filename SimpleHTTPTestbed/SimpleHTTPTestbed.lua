@@ -1,4 +1,4 @@
-project "SimpleHTTPTest"
+project "SimpleHTTPTestbed"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++20"
