@@ -187,15 +187,36 @@ bool URIBuilder::build(std::string_view _input) {
             return false;
     }
 
+    auto isFragmentChar = [](i8 c) {
+        return isPChar(c) || c == '%';
+    };
+
     if (!isAbempty) {
         // parse segment_nz
-        if (!hasNext() || !peek(isPChar))
+        if (!hasNext() || !peek(isFragmentChar))
             return false;
+
+        if (peek() == '%') {
+            pop();
+            if (!hasNext() || !peek(isHex))
+                return false;
+            pop();
+            if (!hasNext() || !peek(isHex))
+                return false;
+        }
 
         u64 beginSegmentNz = getOffset();
         pop();
 
-        while (hasNext() && peek(isPChar)) {
+        while (hasNext() && peek(isFragmentChar)) {
+            if (peek() == '%') {
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+            }
             pop();
         }
 
@@ -211,7 +232,15 @@ bool URIBuilder::build(std::string_view _input) {
         // /abcd/abcd/
         pop();
         u64 beginSegment = getOffset();
-        while (hasNext() && peek(isPChar)) {
+        while (hasNext() && peek(isFragmentChar)) {
+            if (peek() == '%') {
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+            }
             pop();
         }
 
@@ -383,5 +412,49 @@ std::filesystem::path operator/(const std::filesystem::path& path, const simpleH
         return path;
     }
 
-    return path / segment;
+    std::string filterSegment;
+
+    constexpr auto hexToHChar = [](char c) -> char {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+
+        if (c >= 'a' && c <= 'f') {
+            return c - 'a' + 10;
+        }
+
+        if (c >= 'A' && c <= 'F') {
+            return c - 'A' + 10;
+        }
+
+        return 0;
+    };
+
+    constexpr auto hexToChar = [](char c1, char c2) -> char {
+        return hexToHChar(c1) << 4 | hexToHChar(c2);
+    };
+
+    constexpr auto isSafePathChar = [](char c) -> bool {
+        return simpleHTTP::isAlpha(c) || simpleHTTP::isDigit(c) || c == ' ' || c < 0;
+    };
+
+    auto c = segment.begin();
+    for (; c != segment.end(); ++c) {
+        if (*c != '%') {
+            filterSegment.push_back(*c);
+            continue;
+        }
+
+        ++c;
+        char c1 = *c;
+        ++c;
+        char c2 = *c;
+
+        char r = hexToChar(c1, c2);
+        if (isSafePathChar(r)) {
+            filterSegment.push_back(r);
+        }
+    }
+
+    return path / filterSegment;
 }

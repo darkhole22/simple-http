@@ -226,7 +226,7 @@ HttpRequest::HttpRequest(ClientSocket* socket)
 
     try
     {
-        m_Uri = URI(hostsRange.first->second + uri);
+        m_Uri = URI("http://" + hostsRange.first->second + uri);
     }
     catch (...) {
         // TODO implement bad request exception
