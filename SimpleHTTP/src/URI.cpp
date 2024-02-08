@@ -187,15 +187,36 @@ bool URIBuilder::build(std::string_view _input) {
             return false;
     }
 
+    auto isFragmentChar = [](i8 c) {
+        return isPChar(c) || c == '%';
+    };
+
     if (!isAbempty) {
         // parse segment_nz
-        if (!hasNext() || !peek(isPChar))
+        if (!hasNext() || !peek(isFragmentChar))
             return false;
+
+        if (peek() == '%') {
+            pop();
+            if (!hasNext() || !peek(isHex))
+                return false;
+            pop();
+            if (!hasNext() || !peek(isHex))
+                return false;
+        }
 
         u64 beginSegmentNz = getOffset();
         pop();
 
-        while (hasNext() && peek(isPChar)) {
+        while (hasNext() && peek(isFragmentChar)) {
+            if (peek() == '%') {
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+            }
             pop();
         }
 
@@ -211,7 +232,15 @@ bool URIBuilder::build(std::string_view _input) {
         // /abcd/abcd/
         pop();
         u64 beginSegment = getOffset();
-        while (hasNext() && peek(isPChar)) {
+        while (hasNext() && peek(isFragmentChar)) {
+            if (peek() == '%') {
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+                pop();
+                if (!hasNext() || !peek(isHex))
+                    return false;
+            }
             pop();
         }
 

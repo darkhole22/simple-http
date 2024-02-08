@@ -36,9 +36,14 @@ u64 ClientSocket::receiveUntil(void* _buf, u64 size, const void* _delimiter, u64
 
     u64 outLen = 0;
 
-    while (!match && outLen < size) {
+    u32 nullRead = 0;
+    constexpr u32 MAX_NULL_READ = 16;
+
+    while (!match && outLen < size && nullRead < MAX_NULL_READ) {
         if (m_CacheRange.size() <= 0) {
             u64 byteRead = m_Implementation->receive(m_Cache.data(), SOCKET_BUFFER_SIZE);
+            if (byteRead == 0)
+                ++nullRead;
             m_CacheRange = { m_Cache.begin(), byteRead };
         }
 
@@ -51,6 +56,11 @@ u64 ClientSocket::receiveUntil(void* _buf, u64 size, const void* _delimiter, u64
         outLen += toCopy;
 
         match = find != m_CacheRange.end();
+
+        if (m_CacheRange.size() < toCopy + delimiterSize) {
+            m_CacheRange = { m_CacheRange.begin(), m_CacheRange.begin() };
+            continue;
+        }
 
         m_CacheRange = { m_CacheRange.begin() + toCopy + delimiterSize, m_CacheRange.end() };
     }

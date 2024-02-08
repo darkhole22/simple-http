@@ -35,7 +35,7 @@ private:
 
     std::mutex m_StateMutex;
     bool m_Started = false;
-    u32 m_MinThread = 1;
+    u32 m_MinThread = 4;
     u32 m_MaxThread = 0;
     std::vector<std::jthread> m_Threads;
 
