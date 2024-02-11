@@ -232,6 +232,20 @@ HttpRequest::HttpRequest(ClientSocket* socket)
         // TODO implement bad request exception
         throw std::runtime_error("Error while parsing the request uri.");
     }
+
+    auto contentLengthRange = m_HeaderFields.equal_range("content-length");
+
+    if (std::distance(contentLengthRange.first, contentLengthRange.second) == 1) {
+        const auto& contentLength = contentLengthRange.first->second;
+        u64 len = 0;
+        if (std::from_chars(contentLength.data(), contentLength.data() + contentLength.size(), len).ec == std::errc()) {
+            m_Content.resize(len);
+            u64 received = m_Socket->receive(m_Content.data(), len);
+            if (received != len) {
+                // TODO: error?
+            }
+        }
+    }
 }
 
 std::string HttpRequest::getFieldNameIgnoreCase(std::string_view name) const {
@@ -270,6 +284,11 @@ void HttpRequest::setHeaderField(std::string_view _name, std::string_view value)
 
 const HttpRequest::HeaderFieldsMap& HttpRequest::getAllHeaderFields() const {
     return m_HeaderFields;
+}
+
+const std::vector<u8>& HttpRequest::getContent() const
+{
+    return m_Content;
 }
 
 void HttpRequest::addHeaderField(std::string_view name, std::string_view value) {

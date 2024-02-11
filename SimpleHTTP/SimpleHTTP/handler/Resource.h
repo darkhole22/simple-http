@@ -74,7 +74,6 @@ public:
 
     virtual inline ~HeaderFileResource() override {}
 private:
-    std::filesystem::path m_Path;
 };
 
 }

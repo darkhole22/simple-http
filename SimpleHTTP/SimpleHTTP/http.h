@@ -169,6 +169,8 @@ public:
 
     const HeaderFieldsMap& getAllHeaderFields() const;
 
+    const std::vector<u8>& getContent() const;
+
     ~HttpRequest();
 
     friend class HttpServerConnection;
@@ -178,6 +180,7 @@ private:
     HttpMethod m_Method = HttpMethod::UNKNOWN;
     URI m_Uri;
     HeaderFieldsMap m_HeaderFields;
+    std::vector<u8> m_Content;
 
     HttpRequest(ClientSocket* socket);
 

@@ -10,7 +10,7 @@ simpleHTTP::ClientSocket::ClientSocket(Ref<ClientSocketImpl>&& impl)
     m_CacheRange = { m_Cache.begin(), m_Cache.begin() };
 }
 
-inline u64 ClientSocket::receive(void* buf, u64 size) {
+u64 ClientSocket::receive(void* buf, u64 size) {
     const u64 rangeSize = m_CacheRange.size();
     if (rangeSize > 0) {
         if (rangeSize >= size) {
