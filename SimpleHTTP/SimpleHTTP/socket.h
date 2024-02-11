@@ -53,7 +53,7 @@ class ClientSocket
 public:
     ClientSocket(Ref<ClientSocketImpl>&& impl);
 
-    inline u64 receive(void* buf, u64 size);
+    u64 receive(void* buf, u64 size);
 
     inline u64 send(const void* buf, u64 size) {
         return m_Implementation->send(buf, size);

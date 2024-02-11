@@ -389,7 +389,9 @@ bool URI::isSubURI(const URI& other) const {
     auto otherSegment = other.m_Segments.cbegin();
 
     for (; segment != m_Segments.cend() && otherSegment != other.m_Segments.cend(); ++segment, ++otherSegment) {
-        if (*segment != *otherSegment) {
+        std::string_view seg(m_Raw.begin() + segment->first, m_Raw.begin() + segment->second);
+        std::string_view oth(other.m_Raw.begin() + otherSegment->first, other.m_Raw.begin() + otherSegment->second);
+        if (seg != oth) {
             return false;
         }
     }
